@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+body {
+  margin: 0;
+  font-family: 'Nunito', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-color: #F8FAFC;
+}
