@@ -56,6 +56,9 @@ CREATE TABLE libros (
   portada_url     TEXT,
   grado_id        INTEGER REFERENCES grados(id),   -- nullable para libros existentes
   color_acento    TEXT DEFAULT '#e91e8c',
+  color_encabezado_inicio TEXT,
+  color_encabezado_fin    TEXT,
+  color_fondo_actividades TEXT,
   canciones       JSONB DEFAULT '[]',
   videos_animados JSONB DEFAULT '[]',
   hotspots        JSONB DEFAULT '[]'
@@ -95,6 +98,15 @@ CREATE TABLE unidades (
 -- audio:              { url: string, transcripcion?: string }
 -- pregunta:           { pregunta: string, opciones: string[], correcta: int }
 -- termometroEmocional:{ instruccion: string, label: string, emoji: string, min: int, max: int, minLabel: string, maxLabel: string, estados: [{id,desde,emoji,texto}] }
+-- separarSilabas:    { titulo: string, instruccion: string, pista: string, palabras: [{id,palabra,silabas,cantidad}], maxIntentos: int }
+-- acrostico:          { titulo: string, palabra: string, instruccion: string, pista: string, banco: string[], lineas: [{id,letra,placeholder,pista,respuesta?}], maxIntentos: int }
+-- crucigrama:         { titulo: string, instruccion: string, pista: string, filas: int, columnas: int, palabras: [{id,palabra,fila,columna,direccion,pista}], pistas: {horizontal: string[], vertical: string[]} }
+-- respiracionGuiada:  { titulo: string, instruccion: string, mensajeFinal: string, ciclos: int, duracionInhala: int, duracionExhala: int, textoInicio: string, textoInhala: string, textoExhala: string }
+-- miniJuegoConteo:    { titulo: string, instruccion: string, emoji: string, cantidad: int, tiempoLimite: int, textoContador: string, mensajeFinal: string, mensajeTiempo: string }
+-- exploracionInteractiva:{ titulo: string, instruccion: string, escenaInicial: string, textoInicial: string, mensajeFinal: string, preguntaAbierta: string, placeholder: string, opciones: [{id,icono,label,texto,color}] }
+-- selectorEmocionColor:{ titulo: string, instruccion: string, opciones: [{id,emoji,nombre,descripcion,color,etiquetaColor,esCorrecta}], retroalimentacion: string, retroalimentacionError: string, maxIntentos: int }
+-- mezclaPinturaGuiada:{ titulo: string, instruccion: string, colores: [{id,nombre,hex}], mezclas: [{color1Id,color2Id,nombre,hex,mensaje}], numMezclas: int, mensajeFinal: string, pregunta?: string, placeholder?: string }
+-- tarjetasVolteables:{ titulo: string, instruccion: string, mensajeFinal: string, tarjetas: [{id,emoji,frente,reverso,color}] }
 -- emparejar:          { pares: [{izquierda, derecha}] }
 -- arrastrar:          { items: string[], destinos: string[] }
 -- galeria:            { imagenes: [{url, caption?}] }
@@ -102,8 +114,8 @@ CREATE TABLE actividades (
   id        TEXT PRIMARY KEY,
   unidad_id TEXT NOT NULL REFERENCES unidades(id) ON DELETE CASCADE,
   tipo      TEXT NOT NULL CHECK (tipo IN (
-    'sopaLetras','seleccionMultiple','identificar','termometroEmocional','verdaderoFalso','completarPalabras',
-    'ordenarEventos','emparejar','completarMapa','escribirCarta','dibujoLibre',
+    'sopaLetras','seleccionMultiple','identificar','reflexionPersonal','lineaTiempoEmocional','termometroEmocional','clasificacionCategorias','separarSilabas','acrostico','crucigrama','respiracionGuiada','miniJuegoConteo','exploracionInteractiva','selectorEmocionColor','mezclaPinturaGuiada','tarjetasVolteables','verdaderoFalso','completarPalabras',
+    'ordenarEventos','ordenarPalabras','emparejar','completarMapa','escribirCarta','dibujoLibre',
     'video','audio','imagen','colorear'
   )),
   orden     INTEGER NOT NULL,

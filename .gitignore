@@ -42,3 +42,7 @@ public/videos/
 
 # Videos (se sirven vía YouTube embebido, no en el repo)
 public/videos/
+
+# Guía de trabajo (no es código de la app)
+guia.zip
+guia/

@@ -4,6 +4,8 @@ import AdminLayout from '../../components/AdminLayout'
 import { getLibros, createLibro, toggleLibroActivo, getGrados } from '../../services/admin.service'
 import { C, S, btn, btnOutline, badge } from '../../lib/adminStyles'
 import StoragePicker from '../../components/StoragePicker'
+import BookPaletteFields from '../../components/BookPaletteFields'
+import { DEFAULT_BOOK_PALETTE } from '../../lib/bookPalette'
 
 const PAGE_SIZE = 20
 
@@ -15,7 +17,10 @@ function toSlugPreview(str) {
 }
 
 function ModalCrear({ grados, onClose, onSave }) {
-  const [form, setForm] = useState({ titulo: '', descripcion: '', emoji: '📖', grado_id: '', portada_url: '', pdf_url: '', id: '' })
+  const [form, setForm] = useState({
+    titulo: '', descripcion: '', emoji: '📖', grado_id: '', portada_url: '', pdf_url: '', id: '',
+    ...DEFAULT_BOOK_PALETTE,
+  })
   const [picker, setPicker] = useState(null) // 'portada' | 'pdf'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -62,6 +67,8 @@ function ModalCrear({ grados, onClose, onSave }) {
 
           <label style={S.label}>Descripción</label>
           <textarea style={{ ...S.input, marginBottom: 14, resize: 'vertical', minHeight: 64 }} value={form.descripcion} onChange={f('descripcion')} placeholder="Descripción breve del libro" />
+
+          <BookPaletteFields value={form} onChange={setForm} />
 
           <label style={S.label}>Portada</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>

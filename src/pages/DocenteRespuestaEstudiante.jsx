@@ -25,7 +25,9 @@ const TIPO_LABEL = {
   sopaLetras: 'Sopa letras', seleccionMultiple: 'Selección múlt.', verdaderoFalso: 'V/F',
   completarPalabras: 'Completar', ordenarEventos: 'Ordenar', escribirCarta: 'Carta',
   completarMapa: 'Mapa', emparejar: 'Emparejar', identificar: 'Identificar',
-  termometroEmocional: 'Termómetro',
+  termometroEmocional: 'Termómetro', clasificacionCategorias: 'Clasificar', separarSilabas: 'Sílabas',
+  acrostico: 'Acróstico', crucigrama: 'Crucigrama', respiracionGuiada: 'Respiración',
+  miniJuegoConteo: 'Mini-juego', exploracionInteractiva: 'Explorar', selectorEmocionColor: 'Emoción/color', mezclaPinturaGuiada: 'Mezcla', tarjetasVolteables: 'Tarjetas',
   colorear: 'Colorear', dibujoLibre: 'Dibujo', video: 'Video', audio: 'Audio', imagen: 'Imagen',
 }
 
@@ -33,7 +35,9 @@ const TIPO_COLOR = {
   sopaLetras: '#16A34A', seleccionMultiple: '#e91e8c', verdaderoFalso: '#00897b',
   completarPalabras: '#7b1fa2', ordenarEventos: '#1e88e5', escribirCarta: '#e65100',
   completarMapa: '#4caf50', emparejar: '#1e88e5', identificar: '#e65100',
-  termometroEmocional: '#e65100',
+  termometroEmocional: '#e65100', clasificacionCategorias: '#00897b', separarSilabas: '#7b1fa2',
+  acrostico: '#e65100', crucigrama: '#1e88e5', respiracionGuiada: '#1e88e5',
+  miniJuegoConteo: '#e91e8c', exploracionInteractiva: '#00897b', selectorEmocionColor: '#7b1fa2', mezclaPinturaGuiada: '#e91e8c', tarjetasVolteables: '#7b1fa2',
   colorear: '#e91e8c', dibujoLibre: '#e91e8c', video: '#1e88e5', audio: '#7b1fa2', imagen: '#00897b',
 }
 
@@ -85,6 +89,29 @@ function formatRespuesta(tipo, respuesta) {
       }
       case 'sopaLetras':
         return `Palabras: ${(respuesta.palabrasEncontradas || []).join(', ')}`
+      case 'separarSilabas':
+        return (respuesta.respuestas || [])
+          .map(r => `${r.esCorrecta ? '✅' : '❌'} ${r.palabra}: ${r.silabasDadas || '-'} (${r.cantidadDada || '-'})`)
+          .join(' | ')
+      case 'acrostico':
+        return (respuesta.respuestas || []).map(r => `${r.letra}: ${r.texto || '-'}`).join(' | ')
+      case 'crucigrama': {
+        const correctas = (respuesta.respuestas || []).filter(r => r.esCorrecta).length
+        const total = (respuesta.respuestas || []).length
+        return `Letras correctas: ${correctas}/${total}`
+      }
+      case 'respiracionGuiada':
+        return `Completó ${respuesta.ciclos || ''} ciclo(s) de respiración`
+      case 'miniJuegoConteo':
+        return `Contó ${respuesta.contados || 0}/${respuesta.total || 0}`
+      case 'exploracionInteractiva':
+        return `Exploró ${(respuesta.exploradas || []).length}/${respuesta.total || 0}${respuesta.respuesta ? ` · ${respuesta.respuesta}` : ''}`
+      case 'selectorEmocionColor':
+        return `${respuesta.seleccion?.emoji || ''} ${respuesta.seleccion?.emocion || 'Sin selección'}${respuesta.seleccion?.etiquetaColor ? ` · ${respuesta.seleccion.etiquetaColor}` : ''}${respuesta.respuesta ? ` · ${respuesta.respuesta}` : ''}`
+      case 'mezclaPinturaGuiada':
+        return `${respuesta.ultimaMezcla?.colores?.join(' + ') || ''} = ${respuesta.ultimaMezcla?.nombre || ''}${respuesta.respuesta ? ` · ${respuesta.respuesta}` : ''}`
+      case 'tarjetasVolteables':
+        return `Descubrió ${respuesta.tarjetasDescubiertas?.length || 0}/${respuesta.total || 0} tarjetas`
       case 'colorear':
       case 'dibujoLibre':
         return 'Completó el dibujo'
@@ -122,6 +149,24 @@ function formatCSVCell(tipo, respuesta) {
         return termometro ? `${termometro.label}: ${termometro.valor}/${termometro.max}${termometro.estado?.texto ? ` - ${termometro.estado.emoji || ''} ${termometro.estado.texto}` : ''}` : ''
       }
       case 'sopaLetras': return (respuesta.palabrasEncontradas || []).join('; ')
+      case 'separarSilabas':
+        return (respuesta.respuestas || []).map(r => `${r.palabra}: ${r.silabasDadas || ''} / ${r.cantidadDada || ''} (${r.esCorrecta ? 'ok' : 'mal'})`).join('; ')
+      case 'acrostico':
+        return (respuesta.respuestas || []).map(r => `${r.letra}: ${r.texto || ''}`).join('; ')
+      case 'crucigrama':
+        return (respuesta.palabras || []).map(r => `${r.palabra}: ${r.respuestaDada || ''} (${r.esCorrecta ? 'ok' : 'mal'})`).join('; ')
+      case 'respiracionGuiada':
+        return `Completó ${respuesta.ciclos || ''} ciclo(s)`
+      case 'miniJuegoConteo':
+        return `${respuesta.contados || 0}/${respuesta.total || 0}`
+      case 'exploracionInteractiva':
+        return `Exploró ${(respuesta.exploradas || []).length}/${respuesta.total || 0}${respuesta.respuesta ? ` - ${respuesta.respuesta}` : ''}`
+      case 'selectorEmocionColor':
+        return `${respuesta.seleccion?.emocion || ''}${respuesta.seleccion?.etiquetaColor ? ` (${respuesta.seleccion.etiquetaColor})` : ''}${respuesta.respuesta ? ` - ${respuesta.respuesta}` : ''}`
+      case 'mezclaPinturaGuiada':
+        return `${respuesta.ultimaMezcla?.colores?.join(' + ') || ''} = ${respuesta.ultimaMezcla?.nombre || ''}${respuesta.respuesta ? ` - ${respuesta.respuesta}` : ''}`
+      case 'tarjetasVolteables':
+        return (respuesta.tarjetasDescubiertas || []).map(card => card.frente).join('; ')
       case 'colorear': case 'dibujoLibre': return 'Completado'
       default: return ''
     }
@@ -596,6 +641,16 @@ function ReadOnlyContent({ act, resp, isMobile }) {
     case 'completarMapa':     return <ROCompletarMapa act={act} resp={resp} />
     case 'emparejar':         return <ROEmparejar act={act} resp={resp} />
     case 'sopaLetras':        return <ROSopaLetras act={act} resp={resp} />
+    case 'clasificacionCategorias': return <ROClasificacionCategorias act={act} resp={resp} />
+    case 'separarSilabas':    return <ROSepararSilabas act={act} resp={resp} />
+    case 'acrostico':         return <ROAcrostico act={act} resp={resp} />
+    case 'crucigrama':        return <ROCrucigrama act={act} resp={resp} isMobile={isMobile} />
+    case 'respiracionGuiada': return <RORespiracionGuiada act={act} resp={resp} />
+    case 'miniJuegoConteo':   return <ROMiniJuegoConteo act={act} resp={resp} />
+    case 'exploracionInteractiva': return <ROExploracionInteractiva act={act} resp={resp} />
+    case 'selectorEmocionColor': return <ROSelectorEmocionColor resp={resp} />
+    case 'mezclaPinturaGuiada': return <ROMezclaPinturaGuiada resp={resp} />
+    case 'tarjetasVolteables': return <ROTarjetasVolteables act={act} resp={resp} />
     case 'identificar':       return <ROIdentificar act={act} resp={resp} />
     case 'termometroEmocional': return <ROTermometro resp={resp} />
     case 'colorear':          return <ROColorear resp={resp} />
@@ -834,6 +889,248 @@ function ROSopaLetras({ act, resp }) {
   )
 }
 
+function ROSepararSilabas({ act, resp }) {
+  const respuestas = resp?.respuestas || []
+  const byWord = Object.fromEntries(respuestas.map(r => [r.palabra, r]))
+  const palabras = (act.palabras || []).map(item => byWord[item.palabra] || {
+    palabra: item.palabra,
+    silabasCorrectas: item.silabas,
+    cantidadCorrecta: String(item.cantidad ?? ''),
+  })
+
+  return (
+    <div>
+      {act.instruccion && <p style={{ fontSize: 14, color: Cact.textMuted, marginBottom: 12 }}>{act.instruccion}</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {palabras.map((r, i) => {
+          const ok = !!r.esCorrecta
+          return (
+            <div key={`${r.palabra || i}-${i}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(100px, 0.8fr) minmax(120px, 1fr) minmax(80px, 0.5fr)', gap: 10, alignItems: 'center', borderRadius: 10, padding: '9px 10px', border: `2px solid ${ok ? Cact.green : Cact.red}44`, background: ok ? Cact.greenLight : Cact.redLight }}>
+              <span style={{ fontSize: 13, fontWeight: 900, color: Cact.text }}>{ok ? '✓' : '✗'} {r.palabra}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: ok ? Cact.green : Cact.red }}>{r.silabasDadas || '-'} <span style={{ color: Cact.textMuted }}>/ {r.silabasCorrectas || ''}</span></span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: ok ? Cact.green : Cact.red }}>{r.cantidadDada || '-'} <span style={{ color: Cact.textMuted }}>/ {r.cantidadCorrecta || ''}</span></span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ROAcrostico({ act, resp }) {
+  const respuestas = resp?.respuestas || []
+  const byLetter = respuestas.map((r, idx) => ({ ...r, idx }))
+  return (
+    <div>
+      {act.instruccion && <p style={{ fontSize: 14, color: Cact.textMuted, marginBottom: 12 }}>{act.instruccion}</p>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {byLetter.map(r => {
+          const checked = r.esCorrecta === true || r.esCorrecta === false
+          const ok = r.esCorrecta === true
+          return (
+            <div key={`${r.letra || r.idx}-${r.idx}`} style={{ display: 'grid', gridTemplateColumns: '42px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
+              <span style={{ width: 38, height: 38, borderRadius: 10, background: Cact.orangeLight, color: Cact.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900 }}>{r.letra}</span>
+              <div style={{ borderRadius: 10, padding: '9px 11px', border: checked ? `2px solid ${ok ? Cact.green : Cact.red}` : `1px solid ${Cact.border}`, background: checked ? (ok ? Cact.greenLight : Cact.redLight) : '#fff' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: checked ? (ok ? Cact.green : Cact.red) : Cact.text }}>{checked ? (ok ? '✓ ' : '✗ ') : ''}{r.texto || '-'}</div>
+                {r.respuestaCorrecta && !ok && <div style={{ fontSize: 11, color: Cact.textMuted, fontWeight: 700, marginTop: 2 }}>Esperada: {r.respuestaCorrecta}</div>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {resp?.estrellas ? <div style={{ marginTop: 10, fontSize: 14, fontWeight: 800, color: Cact.textMuted }}>Autoevaluación: {'🌟'.repeat(resp.estrellas)}{'⭐'.repeat(Math.max(0, 5 - resp.estrellas))}</div> : null}
+    </div>
+  )
+}
+
+function ROCrucigrama({ act, resp, isMobile }) {
+  const words = (act.palabras || act.words || []).map((item, idx) => {
+    const texto = item.w || item.palabra || item.texto || ''
+    const direccionRaw = item.d || item.direccion || item.dir || 'h'
+    const direccion = String(direccionRaw).toLowerCase().startsWith('v') ? 'v' : 'h'
+    return {
+      id: String(item.id ?? `palabra-${idx + 1}`),
+      texto: cleanCrosswordAnswerDocente(texto),
+      original: texto,
+      fila: Number(item.r ?? item.fila ?? item.row ?? 0),
+      columna: Number(item.c ?? item.columna ?? item.col ?? 0),
+      direccion,
+    }
+  }).filter(item => item.texto)
+  const rows = Math.max(Number(act.filas ?? act.rows) || 0, words.reduce((max, word) => Math.max(max, word.fila + (word.direccion === 'v' ? word.texto.length : 1)), 0))
+  const cols = Math.max(Number(act.columnas ?? act.cols) || 0, words.reduce((max, word) => Math.max(max, word.columna + (word.direccion === 'h' ? word.texto.length : 1)), 0))
+  const { cells, numbers } = buildCrosswordGridDocente(words, rows, cols)
+  const byCell = Object.fromEntries((resp?.respuestas || []).map(r => [r.celda, r]))
+  const cellSize = isMobile ? 30 : 36
+  const correctas = (resp?.respuestas || []).filter(r => r.esCorrecta).length
+  const total = Object.keys(cells).length
+
+  if (!words.length || !rows || !cols) {
+    return <div style={{ color: Cact.textMuted, fontSize: 13 }}>Sin datos de crucigrama.</div>
+  }
+
+  return (
+    <div>
+      {act.instruccion && <p style={{ fontSize: 14, color: Cact.textMuted, marginBottom: 12 }}>{act.instruccion}</p>}
+      <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`, gridTemplateRows: `repeat(${rows}, ${cellSize}px)`, gap: 3, width: 'fit-content', margin: '0 auto' }}>
+          {Array.from({ length: rows }).map((_, r) => (
+            Array.from({ length: cols }).map((__, c) => {
+              const key = `${r},${c}`
+              const expected = cells[key]
+              const answer = byCell[key]?.letraDada || ''
+              const ok = byCell[key]?.esCorrecta === true
+              const bad = byCell[key] && !ok
+              return (
+                <div key={key} style={{ position: 'relative', width: cellSize, height: cellSize, borderRadius: expected ? 5 : 4, background: expected ? '#fff' : Cact.blueLight, border: expected ? `2px solid ${ok ? Cact.green : bad ? Cact.red : '#93C5FD'}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {expected && numbers[key] && <span style={{ position: 'absolute', top: 2, left: 3, fontSize: 8, fontWeight: 900, color: Cact.blue, lineHeight: 1 }}>{numbers[key]}</span>}
+                  {expected && <span style={{ paddingTop: 5, fontSize: isMobile ? 13 : 16, fontWeight: 900, color: ok ? Cact.green : bad ? Cact.red : Cact.text }}>{answer}</span>}
+                </div>
+              )
+            })
+          ))}
+        </div>
+      </div>
+      <div style={{ marginTop: 8, fontSize: 13, fontWeight: 800, color: Cact.textMuted }}>
+        Letras correctas: {correctas}/{total}
+      </div>
+    </div>
+  )
+}
+
+function RORespiracionGuiada({ act, resp }) {
+  return (
+    <div style={{ background: Cact.blueLight, border: `2px solid ${Cact.blue}33`, borderRadius: 14, padding: 16, textAlign: 'center' }}>
+      <div style={{ width: 78, height: 78, borderRadius: '50%', margin: '0 auto 10px', border: `4px solid ${Cact.blue}`, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
+        🌬️
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 900, color: Cact.blue, marginBottom: 4 }}>{act.mensajeFinal || resp?.mensajeFinal || 'Respiración completada.'}</div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: Cact.textMuted }}>
+        {resp?.ciclos ? `${resp.ciclos} ciclo${resp.ciclos !== 1 ? 's' : ''}` : 'Actividad completada'}
+      </div>
+    </div>
+  )
+}
+
+function ROMiniJuegoConteo({ act, resp }) {
+  const total = resp?.total || act.cantidad || 0
+  const contados = resp?.contados || 0
+  return (
+    <div style={{ background: Cact.pinkLight, border: `2px solid ${Cact.pink}33`, borderRadius: 14, padding: 16, textAlign: 'center' }}>
+      <div style={{ fontSize: 38, marginBottom: 8 }}>{act.emoji || '🎈'}</div>
+      <div style={{ fontSize: 15, fontWeight: 900, color: Cact.pink, marginBottom: 4 }}>{act.mensajeFinal || resp?.mensajeFinal || 'Mini-juego completado.'}</div>
+      <div style={{ fontSize: 13, fontWeight: 800, color: Cact.textMuted }}>
+        {contados}/{total} elementos contados
+      </div>
+    </div>
+  )
+}
+
+function ROExploracionInteractiva({ act, resp }) {
+  const exploradas = new Set(resp?.exploradas || [])
+  const opciones = act.opciones || []
+  return (
+    <div style={{ background: Cact.tealLight, border: `2px solid ${Cact.teal}33`, borderRadius: 14, padding: 16 }}>
+      <div style={{ fontSize: 15, fontWeight: 900, color: Cact.teal, marginBottom: 10 }}>{act.mensajeFinal || 'Exploración completada.'}</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {opciones.map((op, i) => {
+          const seen = exploradas.has(op.id)
+          return (
+            <span key={op.id || i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', borderRadius: 20, background: seen ? Cact.greenLight : '#fff', color: seen ? Cact.green : Cact.textMuted, border: `1px solid ${seen ? Cact.green : Cact.border}`, fontSize: 12, fontWeight: 800 }}>
+              {op.icono || '✨'} {op.label || `Opción ${i + 1}`} {seen ? '✓' : ''}
+            </span>
+          )
+        })}
+      </div>
+      {resp?.respuesta && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: Cact.text }}>Respuesta: {resp.respuesta}</div>}
+    </div>
+  )
+}
+
+function ROSelectorEmocionColor({ resp }) {
+  const seleccion = resp?.seleccion || {}
+  return (
+    <div style={{ background: `${seleccion.color || Cact.purple}14`, border: `2px solid ${seleccion.color || Cact.purple}`, borderRadius: 14, padding: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span style={{ fontSize: 38 }}>{seleccion.emoji || '🙂'}</span>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 900, color: seleccion.color || Cact.purple }}>{seleccion.emocion || 'Emoción seleccionada'}</div>
+          {seleccion.etiquetaColor && <div style={{ fontSize: 12, fontWeight: 800, color: Cact.textMuted }}>Color: {seleccion.etiquetaColor}</div>}
+        </div>
+      </div>
+      {resp?.respuesta && <div style={{ marginTop: 10, fontSize: 13, fontWeight: 700, color: Cact.text }}>Explicación: {resp.respuesta}</div>}
+    </div>
+  )
+}
+
+function ROMezclaPinturaGuiada({ resp }) {
+  const mezcla = resp?.ultimaMezcla || {}
+  return (
+    <div style={{ background: Cact.pinkLight, border: `2px solid ${Cact.pink}44`, borderRadius: 14, padding: 16, textAlign: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
+        {(mezcla.colores || []).map((nombre, i) => <span key={`${nombre}-${i}`} style={{ fontSize: 13, fontWeight: 900, color: Cact.text }}>{nombre}{i === 0 ? ' +' : ''}</span>)}
+        <span style={{ fontSize: 18 }}>→</span>
+        <span style={{ width: 42, height: 42, borderRadius: '50%', background: mezcla.hex || '#E2E8F0', border: '3px solid #fff', boxShadow: '0 2px 8px rgba(0,0,0,.18)' }} />
+        <span style={{ fontSize: 15, fontWeight: 900, color: Cact.pink }}>{mezcla.nombre || 'Color mezclado'}</span>
+      </div>
+      {resp?.respuesta && <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid ${Cact.pink}33`, color: Cact.text, fontSize: 13, fontWeight: 700, textAlign: 'left' }}>Respuesta: {resp.respuesta}</div>}
+    </div>
+  )
+}
+
+function ROTarjetasVolteables({ act, resp }) {
+  const discovered = new Set((resp?.tarjetasDescubiertas || []).map(card => card.id))
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
+      {(act.tarjetas || []).map((card, i) => {
+        const seen = discovered.has(card.id)
+        return <div key={card.id || i} style={{ padding: 12, borderRadius: 12, border: `2px solid ${card.color || Cact.purple}`, background: seen ? `${card.color || Cact.purple}12` : '#F3F4F6', textAlign: 'center' }}><div style={{ fontSize: 25 }}>{card.emoji || '❓'}</div><div style={{ fontSize: 13, fontWeight: 900, color: card.color || Cact.purple }}>{card.frente}</div><div style={{ marginTop: 5, fontSize: 11, color: Cact.textMuted }}>{seen ? card.reverso : 'No descubierta'}</div></div>
+      })}
+    </div>
+  )
+}
+
+function ROClasificacionCategorias({ act, resp }) {
+  const categorias = act.categorias || []
+  const clasificaciones = resp?.clasificaciones || []
+  const byCategory = categorias.map(cat => ({
+    ...cat,
+    respuestas: clasificaciones.filter(r => r.categoriaElegidaId === cat.id || r.categoriaElegida === cat.label),
+  }))
+  const sinCategoria = clasificaciones.filter(r => !r.categoriaElegidaId && !r.categoriaElegida)
+
+  return (
+    <div>
+      {act.instruccion && <p style={{ fontSize: 14, color: Cact.textMuted, marginBottom: 12 }}>{act.instruccion}</p>}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        {byCategory.map((cat, idx) => {
+          const color = [Cact.teal, Cact.blue, Cact.purple, Cact.orange, Cact.green, Cact.pink][idx % 6]
+          return (
+            <div key={cat.id || idx} style={{ background: '#fff', border: `2px solid ${color}55`, borderRadius: 12, padding: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color, marginBottom: 8 }}>{cat.label || cat.nombre || `Categoría ${idx + 1}`}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {cat.respuestas.length === 0 && <span style={{ fontSize: 12, color: Cact.textMuted, fontStyle: 'italic' }}>Sin elementos</span>}
+                {cat.respuestas.map((r, i) => (
+                  <div key={`${r.id || r.texto}-${i}`} style={{ borderRadius: 9, padding: '7px 9px', border: `2px solid ${r.esCorrecta ? Cact.green : Cact.red}`, background: r.esCorrecta ? Cact.greenLight : Cact.redLight }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: r.esCorrecta ? Cact.green : Cact.red }}>{r.esCorrecta ? '✓' : '✗'} {r.texto}</div>
+                    {!r.esCorrecta && <div style={{ fontSize: 11, color: Cact.textMuted, fontWeight: 700, marginTop: 2 }}>Correcta: {r.categoriaCorrecta}</div>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      {sinCategoria.length > 0 && (
+        <div style={{ marginTop: 12, background: '#F3F4F6', borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: Cact.textMuted, marginBottom: 8 }}>Sin clasificar</div>
+          {sinCategoria.map((r, i) => <span key={`${r.id || r.texto}-${i}`} style={{ display: 'inline-block', margin: 4, padding: '5px 10px', borderRadius: 20, background: '#fff', color: Cact.text, fontSize: 12, fontWeight: 700 }}>{r.texto}</span>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ROIdentificar({ act, resp }) {
   const opciones = act.opciones || []
   const seleccionadas = new Set(resp?.seleccionadas || [])
@@ -863,6 +1160,34 @@ function normalizarTermometroRespuesta(resp) {
   if (Array.isArray(resp.respuestas) && resp.respuestas.length > 0) return resp.respuestas
   if (resp.valor !== undefined) return [resp]
   return []
+}
+
+function cleanCrosswordAnswerDocente(s) {
+  return String(s || '')
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-ZÑ]/g, '')
+}
+
+function buildCrosswordGridDocente(words, rows, cols) {
+  const cells = {}
+  const numbers = {}
+  let nextNum = 1
+  for (const word of words) {
+    for (let i = 0; i < word.texto.length; i++) {
+      const r = word.fila + (word.direccion === 'v' ? i : 0)
+      const c = word.columna + (word.direccion === 'h' ? i : 0)
+      if (r < 0 || c < 0 || r >= rows || c >= cols) continue
+      const key = `${r},${c}`
+      cells[key] = cells[key] || word.texto[i]
+    }
+  }
+  for (const word of words) {
+    const key = `${word.fila},${word.columna}`
+    if (!numbers[key]) numbers[key] = nextNum++
+  }
+  return { cells, numbers }
 }
 
 function ROTermometro({ resp }) {

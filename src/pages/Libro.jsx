@@ -29,8 +29,10 @@ export default function Libro() {
   const scrollRef = useRef(null)
 
   const accent = libro?.color_acento || '#e91e8c'
+  const headerStart = libro?.color_encabezado_inicio || accent
+  const headerEnd = libro?.color_encabezado_fin || `${accent}cc`
   const accentLight = accent + '22'
-  const accentBg = accent + '09'
+  const accentBg = libro?.color_fondo_actividades || accent + '09'
 
   useEffect(() => { cargarDatos() }, [libroId])
 
@@ -105,7 +107,7 @@ export default function Libro() {
 
         {/* ── Header ── */}
         <div style={{
-          background: `linear-gradient(135deg, ${accent} 0%, ${accent}cc 100%)`,
+          background: `linear-gradient(135deg, ${headerStart} 0%, ${headerEnd} 100%)`,
           color: 'white', padding: isMobile ? '12px 16px 10px' : '1.3rem 2rem',
           textAlign: 'center', position: 'relative', flexShrink: 0,
         }}>
@@ -184,14 +186,14 @@ export default function Libro() {
                   {unidadActiva.titulo || `Sección ${seccionActiva + 1}`}
                   {unidadActiva.subtitulo ? `: ${unidadActiva.subtitulo}` : ''}
                 </h2>
-                {unidadActiva.texto && <p style={{ color: '#6d4c7a', fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>{unidadActiva.texto}</p>}
+                {unidadActiva.texto && <p style={{ color: accent, fontSize: '0.9rem', fontWeight: 600, margin: 0 }}>{unidadActiva.texto}</p>}
               </div>
             )}
             <div style={{ maxWidth: 1100, margin: '0 auto', width: '100%', padding: isMobile ? '12px 12px 48px' : '20px 28px 56px' }}>
               {actividadesSeccion.length === 0
                 ? <TabEmpty icon="🎬" msg="No hay actividades en esta sección." accent={accent} accentBg={accentBg} />
                 : actividadesSeccion.map((act, idx) => (
-                  <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, unidadActiva.id, respuesta, esCorrecta)} snapMode={false} />
+                  <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, unidadActiva.id, respuesta, esCorrecta)} snapMode={false} primaryColor={accent} />
                 ))
               }
             </div>

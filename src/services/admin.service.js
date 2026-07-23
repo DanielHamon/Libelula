@@ -138,11 +138,18 @@ export async function getLibrosTodos() {
   return data
 }
 
-export async function createLibro({ titulo, descripcion, emoji, grado_id, portada_url, pdf_url, id: customId }) {
+export async function createLibro({
+  titulo, descripcion, emoji, grado_id, portada_url, pdf_url, id: customId,
+  color_acento, color_encabezado_inicio, color_encabezado_fin, color_fondo_actividades,
+}) {
   const id = customId || toSlug(titulo)
   const { data, error } = await supabase
     .from('libros')
-    .insert({ id, titulo, descripcion, emoji, grado_id: Number(grado_id), portada_url, pdf_url, activo: true })
+    .insert({
+      id, titulo, descripcion, emoji, grado_id: Number(grado_id), portada_url, pdf_url,
+      color_acento, color_encabezado_inicio, color_encabezado_fin, color_fondo_actividades,
+      activo: true,
+    })
     .select()
     .single()
   if (error) throw error
@@ -236,6 +243,131 @@ export async function updateActividad(id, campos) {
   const { error } = await supabase.from('actividades').update({ campos }).eq('id', id)
   if (error) throw error
   await logAdminAction({ accion: 'edito_actividad', entidad: 'actividad', entidad_id: id })
+}
+
+export async function updateAndPositionActivity(id, campos, unidadDestinoId, posicion) {
+  const { data: actual, error: actualError } = await supabase
+    .from('actividades')
+    .select('id, unidad_id, orden')
+    .eq('id', id)
+    .single()
+  if (actualError) throw actualError
+
+  const { data: destino, error: destinoError } = await supabase
+    .from('actividades')
+    .select('id, orden')
+    .eq('unidad_id', unidadDestinoId)
+    .neq('id', id)
+    .order('orden')
+  if (destinoError) throw destinoError
+  const maxPosicion = (destino || []).length + 1
+  const nuevaPosicion = posicion === undefined || posicion === null
+    ? (actual.unidad_id === unidadDestinoId ? Math.min(actual.orden, maxPosicion) : maxPosicion)
+    : Number(posicion)
+  if (!Number.isInteger(nuevaPosicion) || nuevaPosicion < 1) {
+    throw new Error('La posición debe ser un número entero mayor o igual a 1.')
+  }
+  if (nuevaPosicion > maxPosicion) {
+    throw new Error(`La unidad destino solo admite posiciones entre 1 y ${maxPosicion}.`)
+  }
+
+  const ordenDestino = [...(destino || [])]
+  ordenDestino.splice(nuevaPosicion - 1, 0, { id })
+  const cambios = [
+    supabase.from('actividades').update({ campos, unidad_id: unidadDestinoId, orden: nuevaPosicion }).eq('id', id),
+    ...ordenDestino
+      .map((actividad, index) => actividad.id === id || actividad.orden === index + 1
+        ? null
+        : supabase.from('actividades').update({ orden: index + 1 }).eq('id', actividad.id))
+      .filter(Boolean),
+  ]
+
+  if (actual.unidad_id !== unidadDestinoId) {
+    const { data: origen, error: origenError } = await supabase
+      .from('actividades')
+      .select('id, orden')
+      .eq('unidad_id', actual.unidad_id)
+      .neq('id', id)
+      .order('orden')
+    if (origenError) throw origenError
+    cambios.push(...(origen || [])
+      .map((actividad, index) => actividad.orden === index + 1
+        ? null
+        : supabase.from('actividades').update({ orden: index + 1 }).eq('id', actividad.id))
+      .filter(Boolean))
+  }
+
+  const results = await Promise.all(cambios)
+  const failed = results.find(result => result.error)
+  if (failed?.error) throw failed.error
+
+  await logAdminAction({
+    accion: 'edito_y_reubico_actividad',
+    entidad: 'actividad',
+    entidad_id: id,
+    payload: {
+      unidad_origen_id: actual.unidad_id,
+      unidad_destino_id: unidadDestinoId,
+      orden_anterior: actual.orden,
+      orden_nuevo: nuevaPosicion,
+    },
+  })
+}
+
+export async function reorderActividades(actividades) {
+  if (actividades.length < 2) return
+
+  const ids = actividades.map(actividad => actividad.id)
+  const { data: persisted, error: persistedError } = await supabase
+    .from('actividades')
+    .select('id, orden')
+    .in('id', ids)
+  if (persistedError) throw persistedError
+  const originalOrder = new Map((persisted || []).map(actividad => [actividad.id, actividad.orden]))
+
+  // La tabla tiene UNIQUE (unidad_id, orden). Al intercambiar posiciones no
+  // podemos escribir el orden final directamente porque la posición destino
+  // todavía está ocupada. Primero liberamos todas las posiciones usando
+  // valores temporales únicos y luego aplicamos la numeración definitiva.
+  const temporaryResults = await Promise.all(
+    actividades.map((actividad, index) =>
+      supabase.from('actividades').update({ orden: -(index + 1) }).eq('id', actividad.id)),
+  )
+  const temporaryFailure = temporaryResults.find(result => result.error)
+  if (temporaryFailure?.error) {
+    // Recuperación defensiva si solo una parte de la primera fase se guardó.
+    await Promise.all(
+      actividades.map(actividad =>
+        supabase.from('actividades').update({ orden: originalOrder.get(actividad.id) }).eq('id', actividad.id)),
+    )
+    throw temporaryFailure.error
+  }
+
+  const finalResults = await Promise.all(
+    actividades.map((actividad, index) =>
+      supabase.from('actividades').update({ orden: index + 1 }).eq('id', actividad.id)),
+  )
+  const finalFailure = finalResults.find(result => result.error)
+  if (finalFailure?.error) {
+    // Vuelve a liberar las posiciones antes de restaurar el orden original,
+    // evitando otra colisión UNIQUE durante la recuperación.
+    await Promise.all(
+      actividades.map((actividad, index) =>
+        supabase.from('actividades').update({ orden: -(index + 1) }).eq('id', actividad.id)),
+    )
+    await Promise.all(
+      actividades.map(actividad =>
+        supabase.from('actividades').update({ orden: originalOrder.get(actividad.id) }).eq('id', actividad.id)),
+    )
+    throw finalFailure.error
+  }
+
+  await logAdminAction({
+    accion: 'reordeno_actividades',
+    entidad: 'actividad',
+    entidad_id: actividades[0]?.unidad_id || null,
+    payload: { orden: actividades.map((actividad, index) => ({ id: actividad.id, orden: index + 1 })) },
+  })
 }
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
