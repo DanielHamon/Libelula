@@ -78,6 +78,7 @@ export async function getClaseDetalle(claseId) {
     .from('clases')
     .select(`
       *,
+      grados(nombre),
       clase_libros(libro_id, libro_titulo),
       inscripciones(
         estudiante_id,
@@ -89,7 +90,45 @@ export async function getClaseDetalle(claseId) {
   return data
 }
 
-export async function crearClase({ nombre, gradoId, libros }) {
+export async function actualizarClase({ claseId, nombre, emoji, libros }) {
+  const { error: claseError } = await supabase
+    .from('clases')
+    .update({ nombre: nombre.trim(), emoji: emoji || '🏫' })
+    .eq('id', claseId)
+  if (claseError) throw claseError
+
+  const { data: actuales, error: actualesError } = await supabase
+    .from('clase_libros')
+    .select('libro_id')
+    .eq('clase_id', claseId)
+  if (actualesError) throw actualesError
+
+  const actualesIds = new Set((actuales || []).map(item => item.libro_id))
+  const nuevosIds = new Set(libros.map(libro => libro.libroId))
+  const quitar = [...actualesIds].filter(id => !nuevosIds.has(id))
+  const agregar = libros.filter(libro => !actualesIds.has(libro.libroId))
+
+  if (quitar.length > 0) {
+    const { error } = await supabase
+      .from('clase_libros')
+      .delete()
+      .eq('clase_id', claseId)
+      .in('libro_id', quitar)
+    if (error) throw error
+  }
+  if (agregar.length > 0) {
+    const { error } = await supabase.from('clase_libros').insert(
+      agregar.map(libro => ({
+        clase_id: claseId,
+        libro_id: libro.libroId,
+        libro_titulo: libro.libroTitulo,
+      }))
+    )
+    if (error) throw error
+  }
+}
+
+export async function crearClase({ nombre, emoji = '🏫', gradoId, libros }) {
   // escuela_id lo deriva la RPC del docente autenticado, no viene del frontend
   const { data, error } = await supabase.rpc('crear_clase', {
     p_nombre: nombre,
@@ -100,6 +139,15 @@ export async function crearClase({ nombre, gradoId, libros }) {
   // La RPC puede devolver clase_id o id según la versión del procedimiento
   const claseId = data.clase_id ?? data.id
   if (!claseId) throw new Error('error_clase_id_invalido')
+
+  const { error: emojiError } = await supabase
+    .from('clases')
+    .update({ emoji })
+    .eq('id', claseId)
+  if (emojiError) {
+    console.error('[crearClase] actualización de emoji falló:', emojiError)
+    throw new Error('error_guardar_emoji')
+  }
 
   if (libros.length > 0) {
     const { error: librosError } = await supabase.from('clase_libros').insert(

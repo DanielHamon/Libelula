@@ -2,17 +2,16 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getLibroConUnidades } from '../services/libros.service'
-import { getProgreso, marcarCompleta, guardarRespuesta } from '../services/progreso.service'
+import { getProgreso, getRespuestas, marcarCompleta, guardarRespuesta } from '../services/progreso.service'
 import Sidebar from '../components/Sidebar'
 import LectorLibro from '../components/LectorLibro'
 import { ActivityCard } from '../components/ActivityCard'
 import { useWindowWidth } from '../hooks/useWindowWidth'
+import { rememberRecentBook } from '../lib/recentBooks'
 
 const TABS = [
   { id: 'leer',        icon: '📖', label: 'Leer libro' },
   { id: 'actividades', icon: '🎬', label: null },
-  { id: 'video',       icon: '🎥', label: 'Video libro animado' },
-  { id: 'canciones',   icon: '🎵', label: 'Canciones' },
 ]
 
 export default function Libro() {
@@ -23,6 +22,7 @@ export default function Libro() {
   const [libro, setLibro] = useState(null)
   const [unidades, setUnidades] = useState([])
   const [progreso, setProgreso] = useState({})
+  const [respuestas, setRespuestas] = useState({})
   const [cargando, setCargando] = useState(true)
   const [tab, setTab] = useState('leer')
   const [seccionActiva, setSeccionActiva] = useState(0)
@@ -39,14 +39,17 @@ export default function Libro() {
   async function cargarDatos() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const [{ libro: libroData, unidades: unidadesData }, prog] = await Promise.all([
+      const [{ libro: libroData, unidades: unidadesData }, prog, respuestasData] = await Promise.all([
         getLibroConUnidades(libroId),
         user ? getProgreso(user.id) : Promise.resolve({}),
+        user ? getRespuestas(user.id, libroId) : Promise.resolve({}),
       ])
       if (!libroData) return
+      if (user) rememberRecentBook(user.id, { ...libroData, id: libroData.id || libroId })
       setLibro(libroData)
       setUnidades(unidadesData)
       setProgreso(prog)
+      setRespuestas(respuestasData)
     } catch (err) { console.error(err) }
     finally { setCargando(false) }
   }
@@ -60,6 +63,10 @@ export default function Libro() {
       if (respuesta !== undefined && unidadId) {
         try {
           await guardarRespuesta(user.id, actividadId, libroId, unidadId, respuesta, esCorrecta ?? null)
+          setRespuestas(prev => ({
+            ...prev,
+            [actividadId]: { respuesta, esCorrecta: esCorrecta ?? null },
+          }))
         } catch (e) {
           console.warn('[Libelula] guardarRespuesta falló:', e?.code, e?.message)
         }
@@ -113,11 +120,11 @@ export default function Libro() {
         }}>
           <button
             onClick={() => navigate('/inicio')}
-            style={{ position: 'absolute', top: isMobile ? 10 : 14, left: isMobile ? 12 : 24, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 8, padding: '4px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Nunito' }}
+            style={{ position: 'absolute', top: isMobile ? 8 : 14, left: isMobile ? 8 : 24, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 8, padding: isMobile ? '4px 8px' : '4px 12px', fontSize: isMobile ? 11 : 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Nunito' }}
           >
             ← Inicio
           </button>
-          <h1 style={{ fontFamily: "'Fredoka One', cursive", fontSize: isMobile ? 'clamp(1.2rem, 4.5vw, 1.5rem)' : 'clamp(1.5rem, 3vw, 2.2rem)', marginBottom: '0.2rem', letterSpacing: 1, marginTop: isMobile ? 14 : 0 }}>
+          <h1 style={{ fontFamily: "'Fredoka One', cursive", fontSize: isMobile ? 'clamp(1.05rem, 4.5vw, 1.5rem)' : 'clamp(1.5rem, 3vw, 2.2rem)', marginBottom: '0.2rem', letterSpacing: 1, marginTop: isMobile ? 18 : 0, padding: isMobile ? '0 48px' : 0, overflowWrap: 'anywhere' }}>
             {libro?.emoji ? `${libro.emoji} ${libro?.titulo}` : libro?.titulo}
           </h1>
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 6 }}>
@@ -193,7 +200,7 @@ export default function Libro() {
               {actividadesSeccion.length === 0
                 ? <TabEmpty icon="🎬" msg="No hay actividades en esta sección." accent={accent} accentBg={accentBg} />
                 : actividadesSeccion.map((act, idx) => (
-                  <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, unidadActiva.id, respuesta, esCorrecta)} snapMode={false} primaryColor={accent} />
+                  <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} respuestaGuardada={respuestas[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, unidadActiva.id, respuesta, esCorrecta)} snapMode={false} primaryColor={accent} />
                 ))
               }
             </div>

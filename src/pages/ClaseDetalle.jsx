@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { getClaseDetalle, eliminarEstudianteDeClase, getLibrosDisponiblesParaClase } from '../services/clases.service'
+import { getClaseDetalle, eliminarEstudianteDeClase, getLibrosDisponiblesParaClase, actualizarClase } from '../services/clases.service'
 import { useWindowWidth } from '../hooks/useWindowWidth'
+import { rememberRecentClass } from '../lib/recentClasses'
 
 const C = {
   primary: '#2563EB', primaryLight: '#DBEAFE',
@@ -86,6 +87,7 @@ function ResumenFila({ bg, color, icon, label, valor }) {
 export default function ClaseDetalle() {
   const { claseId } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const width = useWindowWidth()
   const isMobile = width < 768
 
@@ -98,8 +100,23 @@ export default function ClaseDetalle() {
   const [cargando, setCargando] = useState(true)
   const [librosDisponibles, setLibrosDisponibles] = useState([])
   const [agregarLibroOpen, setAgregarLibroOpen] = useState(false)
+  const [editarOpen, setEditarOpen] = useState(false)
+  const [editNombre, setEditNombre] = useState('')
+  const [editEmoji, setEditEmoji] = useState('🏫')
+  const [editLibros, setEditLibros] = useState([])
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false)
+  const [errorEdicion, setErrorEdicion] = useState('')
+  const [estudianteAEliminar, setEstudianteAEliminar] = useState(null)
+  const [eliminandoEstudiante, setEliminandoEstudiante] = useState(false)
+  const [menuEstudianteId, setMenuEstudianteId] = useState(null)
 
   useEffect(() => { cargarDatos() }, [claseId])
+
+  useEffect(() => {
+    if (!clase || searchParams.get('editar') !== '1') return
+    abrirEdicion()
+    setSearchParams({}, { replace: true })
+  }, [clase, searchParams, setSearchParams])
 
   async function cargarDatos() {
     try {
@@ -108,6 +125,8 @@ export default function ClaseDetalle() {
         getLibrosDisponiblesParaClase(claseId),
       ])
       if (!claseData) { navigate('/panel-docente'); return }
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) rememberRecentClass(user.id, claseData)
 
       setLibrosDisponibles(todosLosLibros)
 
@@ -202,12 +221,56 @@ export default function ClaseDetalle() {
     } catch (err) { console.error(err) }
   }
 
-  async function eliminarEstudiante(uid) {
-    if (!confirm('¿Eliminar este estudiante de la clase?')) return
+  function abrirEdicion() {
+    setEditNombre(clase?.nombre || '')
+    setEditEmoji(clase?.emoji || '🏫')
+    setEditLibros(clase?.libros || [])
+    setErrorEdicion('')
+    setEditarOpen(true)
+  }
+
+  function toggleEditLibro(libro) {
+    setEditLibros(current => current.some(item => item.libroId === libro.libroId)
+      ? current.filter(item => item.libroId !== libro.libroId)
+      : [...current, libro])
+  }
+
+  async function guardarEdicion() {
+    if (!editNombre.trim()) {
+      setErrorEdicion('El nombre de la clase es obligatorio.')
+      return
+    }
+    setGuardandoEdicion(true)
+    setErrorEdicion('')
     try {
-      await eliminarEstudianteDeClase(claseId, uid)
-      setEstudiantes(prev => prev.filter(e => e.uid !== uid))
-    } catch (err) { console.error(err) }
+      await actualizarClase({
+        claseId,
+        nombre: editNombre,
+        emoji: editEmoji,
+        libros: editLibros,
+      })
+      setEditarOpen(false)
+      await cargarDatos()
+    } catch (error) {
+      console.error('guardarEdicion:', error)
+      setErrorEdicion('No se pudieron guardar los cambios.')
+    } finally {
+      setGuardandoEdicion(false)
+    }
+  }
+
+  async function confirmarEliminarEstudiante() {
+    if (!estudianteAEliminar || eliminandoEstudiante) return
+    setEliminandoEstudiante(true)
+    try {
+      await eliminarEstudianteDeClase(claseId, estudianteAEliminar.uid)
+      setEstudiantes(prev => prev.filter(e => e.uid !== estudianteAEliminar.uid))
+      setEstudianteAEliminar(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setEliminandoEstudiante(false)
+    }
   }
 
   if (cargando) return (
@@ -259,9 +322,9 @@ export default function ClaseDetalle() {
     <div style={{ minHeight: '100vh', fontFamily: 'Nunito', background: C.bg }}>
 
       {/* Nav */}
-      <nav style={{
+      <nav className="responsive-teacher-nav" style={{
         background: `linear-gradient(135deg, ${C.navy}, ${C.navyDark})`,
-        padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', gap: 16,
+        padding: isMobile ? '8px 12px' : '0 24px', height: isMobile ? 'auto' : 60, minHeight: 60, display: 'flex', alignItems: 'center', gap: 16,
         position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }}>
         <button onClick={() => navigate('/panel-docente')} style={{
@@ -283,13 +346,18 @@ export default function ClaseDetalle() {
         <div style={{ ...card, marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 180 }}>
             <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: C.text }}>
-              {clase?.nombre}
+              <span style={{ marginRight: 8 }}>{clase?.emoji || '🏫'}</span>{clase?.nombre}
             </div>
             <div style={{ fontSize: 13, color: C.textLight, marginTop: 4 }}>
               {libros.length} libro{libros.length !== 1 ? 's' : ''} asignado{libros.length !== 1 ? 's' : ''}
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: isMobile ? 'flex-start' : 'flex-end' }}>
+          <div className="responsive-class-actions" style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', flexWrap: 'wrap', gap: 8, alignItems: isMobile ? 'center' : 'flex-end' }}>
+            <button onClick={abrirEdicion} style={{
+              background: '#fff', color: C.primary, border: `1px solid ${C.primary}`,
+              borderRadius: 9, padding: '6px 14px', fontSize: 12, fontWeight: 800,
+              cursor: 'pointer', fontFamily: 'Nunito',
+            }}>✏️ Editar clase</button>
             <div style={{
               background: C.primaryLight, color: C.primary,
               borderRadius: 10, padding: '6px 16px', fontSize: 15, fontWeight: 800,
@@ -351,7 +419,18 @@ export default function ClaseDetalle() {
             <div style={{ fontSize: 11, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>
               Libros de la clase
             </div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <div
+              aria-label="Libros asignados a la clase"
+              style={{
+                display: 'flex', gap: 12, flexWrap: 'nowrap',
+                width: '100%', overflowX: 'auto', overflowY: 'hidden',
+                padding: '2px 2px 12px',
+                scrollSnapType: 'x mandatory',
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'thin',
+                overscrollBehaviorX: 'contain',
+              }}
+            >
               {libros.map(l => {
                 const isSelected = libroSel === l.libroId
                 const total = totalPorLibro[l.libroId] || 0
@@ -372,7 +451,10 @@ export default function ClaseDetalle() {
                       borderRadius: 14, padding: '14px 18px',
                       cursor: 'pointer', fontFamily: 'Nunito',
                       textAlign: 'left', transition: 'all 0.15s',
-                      minWidth: isMobile ? 160 : 210,
+                      width: isMobile ? 216 : 240,
+                      minWidth: isMobile ? 216 : 240,
+                      flex: '0 0 auto',
+                      scrollSnapAlign: 'start',
                       boxShadow: isSelected ? `0 4px 14px ${C.primary}40` : '0 1px 3px rgba(0,0,0,0.06)',
                     }}
                   >
@@ -416,7 +498,7 @@ export default function ClaseDetalle() {
         {/* Stats row */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(3, 1fr)',
+          gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)',
           gap: 14, marginBottom: 20,
         }}>
           {[
@@ -518,7 +600,53 @@ export default function ClaseDetalle() {
               const pct = Math.round(est.pct * 100)
               const color = barColor(pct)
               return (
-                <div key={est.uid} style={{ ...card, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div key={est.uid} style={{ ...card, position: 'relative', display: 'flex', alignItems: 'center', gap: 12, paddingRight: 48 }}>
+                  <button
+                    type="button"
+                    aria-label={`Opciones de ${est.nombre}`}
+                    aria-expanded={menuEstudianteId === est.uid}
+                    onClick={() => setMenuEstudianteId(current => current === est.uid ? null : est.uid)}
+                    style={{
+                      position: 'absolute', top: 10, right: 10,
+                      width: 30, height: 30, border: 'none', borderRadius: 8,
+                      background: menuEstudianteId === est.uid ? C.primaryLight : 'transparent',
+                      color: C.textLight, fontSize: 20, lineHeight: 1,
+                      fontWeight: 900, cursor: 'pointer', padding: 0,
+                    }}
+                  >
+                    ⋯
+                  </button>
+                  {menuEstudianteId === est.uid && (
+                    <>
+                      <div
+                        onClick={() => setMenuEstudianteId(null)}
+                        style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+                      />
+                      <div style={{
+                        position: 'absolute', top: 42, right: 10, zIndex: 50,
+                        minWidth: 180, padding: 5, background: '#fff',
+                        border: `1px solid ${C.border}`, borderRadius: 10,
+                        boxShadow: '0 8px 24px rgba(15,23,42,.16)',
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMenuEstudianteId(null)
+                            setEstudianteAEliminar(est)
+                          }}
+                          style={{
+                            width: '100%', border: 'none', borderRadius: 7,
+                            background: 'transparent', color: C.danger,
+                            padding: '9px 11px', textAlign: 'left',
+                            fontFamily: 'Nunito', fontSize: 12,
+                            fontWeight: 800, cursor: 'pointer',
+                          }}
+                        >
+                          🗑️ Eliminar estudiante
+                        </button>
+                      </div>
+                    </>
+                  )}
                   <Avatar nombre={est.nombre} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: C.text, fontSize: 14 }}>{est.nombre}</div>
@@ -533,17 +661,12 @@ export default function ClaseDetalle() {
                       </span>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                    <button onClick={() => navigate(`/panel-docente/clase/${claseId}/estudiante/${est.uid}`)} style={{
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0, alignSelf: 'flex-end' }}>
+                    <button onClick={() => navigate(`/panel-docente/clase/${claseId}/estudiante/${est.uid}?libroId=${encodeURIComponent(libroSel)}`)} style={{
                       background: C.primaryLight, border: 'none', borderRadius: 8,
                       padding: '5px 10px', fontSize: 11, color: C.primary,
                       cursor: 'pointer', fontFamily: 'Nunito', fontWeight: 700,
-                    }}>Respuestas</button>
-                    <button onClick={() => eliminarEstudiante(est.uid)} style={{
-                      background: 'none', border: `1px solid ${C.border}`, borderRadius: 8,
-                      padding: '5px 10px', fontSize: 12, color: C.textLight,
-                      cursor: 'pointer', fontFamily: 'Nunito', fontWeight: 600,
-                    }}>✕</button>
+                    }}>Ver respuestas</button>
                   </div>
                 </div>
               )
@@ -609,12 +732,12 @@ export default function ClaseDetalle() {
                       </td>
                       <td style={{ padding: '12px 18px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                          <button onClick={() => navigate(`/panel-docente/clase/${claseId}/estudiante/${est.uid}`)} style={{
+                          <button onClick={() => navigate(`/panel-docente/clase/${claseId}/estudiante/${est.uid}?libroId=${encodeURIComponent(libroSel)}`)} style={{
                             background: C.primaryLight, border: 'none', borderRadius: 8,
                             padding: '5px 12px', fontSize: 12, color: C.primary,
                             cursor: 'pointer', fontFamily: 'Nunito', fontWeight: 700,
                           }}>Ver respuestas</button>
-                          <button onClick={() => eliminarEstudiante(est.uid)} style={{
+                          <button onClick={() => setEstudianteAEliminar(est)} style={{
                             background: 'none', border: `1px solid ${C.border}`, borderRadius: 8,
                             padding: '5px 12px', fontSize: 12, color: C.textLight,
                             cursor: 'pointer', fontFamily: 'Nunito', fontWeight: 600,
@@ -629,6 +752,151 @@ export default function ClaseDetalle() {
           </div>
         )}
       </div>
+
+      {editarOpen && (
+        <div onClick={() => !guardandoEdicion && setEditarOpen(false)} style={{
+          position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(0,0,0,.48)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+        }}>
+          <div onClick={event => event.stopPropagation()} style={{
+            width: '100%', maxWidth: 560, maxHeight: '88vh', overflowY: 'auto',
+            background: '#fff', borderRadius: 18, padding: isMobile ? 22 : 28,
+            boxShadow: '0 20px 60px rgba(0,0,0,.22)',
+          }}>
+            <h2 style={{ margin: '0 0 20px', color: C.text, fontSize: 20 }}>Editar clase</h2>
+
+            <label style={{ display: 'block', color: C.text, fontSize: 13, fontWeight: 800, marginBottom: 7 }}>Nombre</label>
+            <input value={editNombre} onChange={event => setEditNombre(event.target.value)} maxLength={80} style={{
+              width: '100%', boxSizing: 'border-box', border: `2px solid ${C.border}`,
+              borderRadius: 10, padding: '10px 12px', fontFamily: 'Nunito', fontSize: 14,
+              color: C.text, outlineColor: C.primary, marginBottom: 18,
+            }} />
+
+            <div style={{ marginBottom: 18 }}>
+              <div style={{ color: C.text, fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Emoji</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {['🏫', '📚', '✏️', '🎨', '🔬', '🌎', '🚀', '⭐', '🦋', '🌈', '🧠', '🎵'].map(emoji => (
+                  <button key={emoji} type="button" onClick={() => setEditEmoji(emoji)} style={{
+                    width: 40, height: 40, borderRadius: 9, fontSize: 20, cursor: 'pointer',
+                    background: editEmoji === emoji ? C.primaryLight : '#fff',
+                    border: `2px solid ${editEmoji === emoji ? C.primary : C.border}`,
+                  }}>{emoji}</button>
+                ))}
+              </div>
+            </div>
+
+            <label style={{ display: 'block', color: C.text, fontSize: 13, fontWeight: 800, marginBottom: 7 }}>
+              Grado <span style={{ color: C.textLight, fontWeight: 600 }}>(no se puede modificar)</span>
+            </label>
+            <input disabled value={clase?.grados?.nombre || `Grado ${clase?.grado_id || ''}`} style={{
+              width: '100%', boxSizing: 'border-box', border: `1px solid ${C.border}`,
+              borderRadius: 10, padding: '10px 12px', fontFamily: 'Nunito', fontSize: 14,
+              color: C.textLight, background: '#F3F4F6', marginBottom: 18,
+            }} />
+
+            <div style={{ color: C.text, fontSize: 13, fontWeight: 800, marginBottom: 8 }}>Libros asignados</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 18 }}>
+              {librosDisponibles.length === 0 ? (
+                <div style={{ fontSize: 13, color: C.textLight }}>No hay libros disponibles para este grado.</div>
+              ) : librosDisponibles.map(libro => {
+                const selected = editLibros.some(item => item.libroId === libro.libroId)
+                return (
+                  <button key={libro.libroId} type="button" onClick={() => toggleEditLibro(libro)} style={{
+                    display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left',
+                    border: `2px solid ${selected ? C.primary : C.border}`, borderRadius: 10,
+                    padding: '9px 11px', background: selected ? C.primaryLight : '#fff',
+                    color: selected ? C.primary : C.text, fontFamily: 'Nunito', cursor: 'pointer',
+                    fontSize: 13, fontWeight: 700,
+                  }}>
+                    <span>{selected ? '✅' : '⬜'}</span>
+                    <span>{libro.emoji || '📖'} {libro.libroTitulo}</span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {errorEdicion && <div style={{ color: C.danger, background: C.dangerLight, borderRadius: 9, padding: '9px 12px', fontSize: 12, fontWeight: 700, marginBottom: 12 }}>{errorEdicion}</div>}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={guardarEdicion} disabled={guardandoEdicion} style={{
+                flex: 1, border: 'none', borderRadius: 10, padding: 11,
+                background: guardandoEdicion ? '#93C5FD' : C.primary, color: '#fff',
+                fontFamily: 'Nunito', fontWeight: 800, cursor: guardandoEdicion ? 'wait' : 'pointer',
+              }}>{guardandoEdicion ? 'Guardando…' : 'Guardar cambios'}</button>
+              <button onClick={() => setEditarOpen(false)} disabled={guardandoEdicion} style={{
+                border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 16px',
+                background: '#fff', color: C.textLight, fontFamily: 'Nunito', fontWeight: 700, cursor: 'pointer',
+              }}>Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {estudianteAEliminar && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="eliminar-estudiante-titulo"
+          onClick={() => !eliminandoEstudiante && setEstudianteAEliminar(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100,
+            background: 'rgba(15,23,42,.55)', backdropFilter: 'blur(2px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+          }}
+        >
+          <div onClick={event => event.stopPropagation()} style={{
+            width: '100%', maxWidth: 420, background: '#fff', borderRadius: 20,
+            padding: isMobile ? 24 : 30, boxShadow: '0 24px 64px rgba(15,23,42,.25)',
+            border: `1px solid ${C.border}`,
+          }}>
+            <div style={{
+              width: 54, height: 54, margin: '0 auto 14px', borderRadius: '50%',
+              background: C.dangerLight, color: C.danger,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 25,
+            }}>🗑️</div>
+            <h2 id="eliminar-estudiante-titulo" style={{
+              margin: '0 0 8px', color: C.text, fontSize: 19,
+              fontWeight: 900, textAlign: 'center',
+            }}>
+              Eliminar estudiante
+            </h2>
+            <p style={{ margin: '0 0 8px', color: C.textLight, fontSize: 14, lineHeight: 1.5, textAlign: 'center' }}>
+              ¿Quieres eliminar a <strong style={{ color: C.text }}>{estudianteAEliminar.nombre}</strong> de esta clase?
+            </p>
+            <div style={{
+              background: C.dangerLight, color: C.danger, borderRadius: 10,
+              padding: '9px 12px', fontSize: 12, fontWeight: 700,
+              textAlign: 'center', margin: '0 0 22px',
+            }}>
+              Perderá el acceso a la clase, pero sus libros y su cuenta no serán eliminados.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 10 }}>
+              <button
+                onClick={() => setEstudianteAEliminar(null)}
+                disabled={eliminandoEstudiante}
+                style={{
+                  padding: 11, borderRadius: 10, border: `1px solid ${C.border}`,
+                  background: '#fff', color: C.textLight, fontFamily: 'Nunito',
+                  fontSize: 14, fontWeight: 800, cursor: eliminandoEstudiante ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarEliminarEstudiante}
+                disabled={eliminandoEstudiante}
+                style={{
+                  padding: 11, borderRadius: 10, border: 'none',
+                  background: eliminandoEstudiante ? '#FCA5A5' : C.danger,
+                  color: '#fff', fontFamily: 'Nunito', fontSize: 14,
+                  fontWeight: 800, cursor: eliminandoEstudiante ? 'wait' : 'pointer',
+                }}
+              >
+                {eliminandoEstudiante ? 'Eliminando…' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

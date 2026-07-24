@@ -20,6 +20,7 @@ export default function NuevaClase() {
   const isMobile = width < 768
 
   const [nombre, setNombre] = useState('')
+  const [emoji, setEmoji] = useState('🏫')
   const [gradoId, setGradoId] = useState('')
   const [grados, setGrados] = useState([])
   const [todosLosLibros, setTodosLosLibros] = useState([])
@@ -66,13 +67,14 @@ export default function NuevaClase() {
 
     setGuardando(true)
     try {
-      await crearClase({ nombre: nombre.trim(), gradoId: parseInt(gradoId), libros: librosSeleccionados })
+      await crearClase({ nombre: nombre.trim(), emoji, gradoId: parseInt(gradoId), libros: librosSeleccionados })
       navigate('/panel-docente')
     } catch (err) {
       console.error(err)
       const mensajes = {
         docente_sin_escuela: 'Tu cuenta no tiene una escuela asignada. Contacta a tu institución.',
         error_insertar_libros: 'La clase se creó pero no se pudieron asignar los libros. Agrégalos desde el panel de la clase.',
+        error_guardar_emoji: 'La clase se creó, pero no se pudo guardar el emoji. Verifica la migración de Supabase.',
         error_clase_id_invalido: 'Error interno al crear la clase. Intenta de nuevo.',
       }
       setError(mensajes[err.message] ?? 'Error al crear la clase. Intenta de nuevo.')
@@ -83,9 +85,9 @@ export default function NuevaClase() {
     <div style={{ minHeight: '100vh', fontFamily: 'Nunito', background: C.bg }}>
 
       {/* Top nav */}
-      <nav style={{
+      <nav className="responsive-teacher-nav" style={{
         background: `linear-gradient(135deg, ${C.navy}, ${C.navyDark})`,
-        padding: '0 24px', height: 60, display: 'flex',
+        padding: isMobile ? '8px 12px' : '0 24px', height: isMobile ? 'auto' : 60, minHeight: 60, display: 'flex',
         alignItems: 'center', gap: 16,
         position: 'sticky', top: 0, zIndex: 100,
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
@@ -122,6 +124,32 @@ export default function NuevaClase() {
                 outline: 'none', color: C.text,
               }}
             />
+
+            <label style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8, display: 'block', marginTop: 20 }}>
+              Emoji de la clase
+            </label>
+            <p style={{ fontSize: 12, color: C.textLight, margin: '0 0 10px' }}>
+              Ayudará a identificarla rápidamente en el panel lateral.
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {['🏫', '📚', '✏️', '🎨', '🔬', '🌎', '🚀', '⭐', '🦋', '🌈', '🧠', '🎵'].map(option => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setEmoji(option)}
+                  aria-label={`Usar emoji ${option}`}
+                  aria-pressed={emoji === option}
+                  style={{
+                    width: 42, height: 42, borderRadius: 10, fontSize: 21,
+                    background: emoji === option ? C.primaryLight : '#fff',
+                    border: `2px solid ${emoji === option ? C.primary : C.border}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
 
             {/* Grado */}
             <label style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8, display: 'block', marginTop: 20 }}>

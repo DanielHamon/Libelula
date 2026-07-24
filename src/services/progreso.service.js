@@ -8,6 +8,26 @@ export async function getProgreso(usuarioId) {
   return Object.fromEntries((data || []).map(r => [r.actividad_id, true]))
 }
 
+export async function getRespuestas(usuarioId, libroId) {
+  let query = supabase
+    .from('respuestas')
+    .select('actividad_id, respuesta, es_correcta')
+    .eq('usuario_id', usuarioId)
+
+  if (libroId) query = query.eq('libro_id', libroId)
+
+  const { data, error } = await query
+  if (error) {
+    console.warn('[Libelula] No se pudieron cargar las respuestas:', error.message)
+    return {}
+  }
+
+  return Object.fromEntries((data || []).map(row => [row.actividad_id, {
+    respuesta: row.respuesta,
+    esCorrecta: row.es_correcta,
+  }]))
+}
+
 export async function isActividadCompleta(usuarioId, actividadId) {
   const { data } = await supabase
     .from('actividad_progreso')

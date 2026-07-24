@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { cerrarSesion } from '../lib/session'
 import { useWindowWidth } from '../hooks/useWindowWidth'
+import { getRecentBooks, RECENT_BOOKS_EVENT } from '../lib/recentBooks'
 
 const links = [
   { path: '/inicio', icon: '🏠', label: 'Inicio' },
@@ -21,12 +22,27 @@ export default function Sidebar() {
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === 'true')
   const [nombreUsuario, setNombreUsuario] = useState('')
+  const [usuarioId, setUsuarioId] = useState(null)
+  const [librosRecientes, setLibrosRecientes] = useState([])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setNombreUsuario(user?.user_metadata?.nombre || '')
+      setUsuarioId(user?.id || null)
+      setLibrosRecientes(getRecentBooks(user?.id))
     })
   }, [])
+
+  useEffect(() => {
+    if (!usuarioId) return undefined
+    const actualizar = event => {
+      if (!event.detail?.userId || event.detail.userId === usuarioId) {
+        setLibrosRecientes(getRecentBooks(usuarioId))
+      }
+    }
+    window.addEventListener(RECENT_BOOKS_EVENT, actualizar)
+    return () => window.removeEventListener(RECENT_BOOKS_EVENT, actualizar)
+  }, [usuarioId])
 
   function toggleCollapsed() {
     setCollapsed(c => {
@@ -82,7 +98,10 @@ export default function Sidebar() {
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #2563EB, #F97316)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>📖</div>
                 <span style={{ fontSize: 18, fontWeight: 800, color: C.text }}>Libelula</span>
               </div>
-              <nav style={{ flex: 1, padding: '8px 12px' }}>{navLinks}</nav>
+              <nav style={{ flex: 1, padding: '8px 12px', overflowY: 'auto' }}>
+                {navLinks}
+                <RecentBooks books={librosRecientes} onSelect={id => { navigate(`/libro/${id}`); setOpen(false) }} />
+              </nav>
               <div style={{ padding: 16, borderTop: `1px solid ${C.border}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ width: 34, height: 34, borderRadius: '50%', background: C.primary, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{initials}</div>
@@ -173,6 +192,7 @@ export default function Sidebar() {
             </button>
           )
         })}
+        <RecentBooks books={librosRecientes} compact={collapsed} onSelect={id => navigate(`/libro/${id}`)} />
       </nav>
 
       {/* User block */}
@@ -203,6 +223,54 @@ export default function Sidebar() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function RecentBooks({ books, onSelect, compact = false }) {
+  return (
+    <div style={{ marginTop: 22, paddingTop: compact ? 10 : 16, borderTop: `1px solid ${C.border}` }}>
+      {!compact && <div style={{
+        padding: '0 8px 8px', color: C.textLight, fontSize: 10,
+        fontWeight: 800, letterSpacing: 0.8, textTransform: 'uppercase',
+      }}>
+        Últimos libros
+      </div>}
+      {books.length === 0 && !compact ? (
+        <div style={{ padding: '4px 8px', color: '#9CA3AF', fontSize: 11, lineHeight: 1.4 }}>
+          Los libros que abras aparecerán aquí.
+        </div>
+      ) : books.map(book => (
+        <button
+          key={book.id}
+          onClick={() => onSelect(book.id)}
+          title={book.titulo}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: compact ? 'center' : 'flex-start',
+            gap: compact ? 0 : 9, width: '100%',
+            padding: compact ? '6px 0' : '8px', border: 'none', borderRadius: 9,
+            background: 'transparent', color: C.text, cursor: 'pointer',
+            fontFamily: 'Nunito', textAlign: 'left',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#F3F4F6' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          <span style={{
+            width: compact ? 32 : 28, height: compact ? 32 : 34, borderRadius: compact ? 8 : 5, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: C.primaryLight, fontSize: compact ? 17 : 15,
+          }}>
+            {book.emoji}
+          </span>
+          {!compact && <span style={{
+            minWidth: 0, fontSize: 12, fontWeight: 700, lineHeight: 1.25,
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>
+            {book.titulo}
+          </span>}
+        </button>
+      ))}
     </div>
   )
 }

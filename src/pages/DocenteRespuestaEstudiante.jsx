@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { getProgresoConRespuestas, getProgresoClaseCompleta } from '../services/docente.service'
+import { getProgresoConRespuestas } from '../services/docente.service'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import { C as Cact, TIPO_CONFIG as TipoConfig } from '../components/ActivityCard'
 
@@ -43,6 +43,12 @@ const TIPO_COLOR = {
 
 const NO_COMPLETE_TYPES = new Set(['video', 'audio', 'imagen'])
 const TIPOS_INCOMPLETA = new Set(['sopaLetras', 'verdaderoFalso', 'emparejar', 'ordenarEventos'])
+const TIPOS_CALIFICABLES = new Set([
+  'sopaLetras', 'seleccionMultiple', 'verdaderoFalso', 'completarPalabras',
+  'ordenarEventos', 'ordenarPalabras', 'emparejar', 'identificar',
+  'clasificacionCategorias', 'separarSilabas', 'crucigrama',
+  'selectorEmocionColor', 'lineaTiempoEmocional', 'miniJuegoConteo',
+])
 
 function formatEstado(tipo, completada, es_correcta) {
   if (NO_COMPLETE_TYPES.has(tipo)) return 'N/A'
@@ -185,20 +191,56 @@ function downloadCSV(filename, rows) {
 }
 
 function exportarEstudiante(nombreEst, actividades) {
-  const rows = [['Unidad', 'Actividad', 'Tipo', 'Estado', 'Respuesta']]
-  for (const act of actividades) {
+  const calificables = actividades.filter(act => TIPOS_CALIFICABLES.has(act.tipo))
+  const rows = [[
+    'Número de actividad',
+    'Sección de la actividad',
+    'Tipo de actividad',
+    'Título de la actividad',
+    'Estado',
+    'Correcta o no',
+  ]]
+  calificables.forEach((act, index) => {
     rows.push([
-      act.unidadTitulo, act.titulo, TIPO_LABEL[act.tipo] || act.tipo,
-      formatEstado(act.tipo, act.completada, act.es_correcta),
-      formatCSVCell(act.tipo, act.respuesta),
+      index + 1,
+      act.unidadTitulo,
+      TIPO_LABEL[act.tipo] || act.tipo,
+      act.titulo,
+      act.completada ? 'Completa' : act.respuesta ? 'Incompleta' : 'Sin realizar',
+      formatCorreccionExportacion(act),
     ])
-  }
+  })
   downloadCSV(`respuestas_${nombreEst.replace(/\s+/g, '_')}.csv`, rows)
+}
+
+function formatCorreccionExportacion(act) {
+  if (!act.completada && !act.respuesta) return ''
+
+  const grupos = [
+    act.respuesta?.respuestas,
+    act.respuesta?.clasificaciones,
+    act.respuesta?.momentos,
+  ]
+  const resultados = grupos
+    .find(items => Array.isArray(items) && items.some(item => typeof item?.esCorrecta === 'boolean'))
+
+  if (resultados) {
+    const evaluadas = resultados.filter(item => typeof item?.esCorrecta === 'boolean')
+    const correctas = evaluadas.filter(item => item.esCorrecta).length
+    if (correctas === evaluadas.length) return '✅'
+    if (correctas === 0) return '❌'
+    return `${correctas}/${evaluadas.length}`
+  }
+
+  if (act.es_correcta === true) return '✅'
+  if (act.es_correcta === false) return '❌'
+  return ''
 }
 
 export default function DocenteRespuestaEstudiante() {
   const { claseId, estudianteId } = useParams()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const width = useWindowWidth()
   const isMobile = width < 768
 
@@ -213,7 +255,6 @@ export default function DocenteRespuestaEstudiante() {
   const [estadoFiltro, setEstadoFiltro] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingActs, setLoadingActs] = useState(false)
-  const [exportandoClase, setExportandoClase] = useState(false)
   const [detalleOpen, setDetalleOpen] = useState(false)
 
   useEffect(() => { init() }, [])
@@ -229,7 +270,16 @@ export default function DocenteRespuestaEstudiante() {
       setClase(claseData)
       setLibros(librosList)
       setEstudiante(estRes.data)
-      if (librosList.length > 0) setLibroSel(librosList[0].id)
+      if (librosList.length > 0) {
+        const requestedLibroId = searchParams.get('libroId')
+        const initialLibro = librosList.some(libro => libro.id === requestedLibroId)
+          ? requestedLibroId
+          : librosList[0].id
+        setLibroSel(initialLibro)
+        if (initialLibro !== requestedLibroId) {
+          setSearchParams({ libroId: initialLibro }, { replace: true })
+        }
+      }
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -243,6 +293,11 @@ export default function DocenteRespuestaEstudiante() {
     const { data } = await supabase.from('unidades').select('id, titulo, orden').eq('libro_id', libroSel).order('orden')
     setUnidades(data || [])
     setUnidadSel('all')
+  }
+
+  function handleLibroChange(libroId) {
+    setLibroSel(libroId)
+    setSearchParams({ libroId }, { replace: true })
   }
 
   useEffect(() => {
@@ -260,37 +315,6 @@ export default function DocenteRespuestaEstudiante() {
       setUnidadesData(data)
     } catch (e) { console.error(e) }
     finally { setLoadingActs(false) }
-  }
-
-  async function handleExportarClase() {
-    setExportandoClase(true)
-    try {
-      const uid = unidadSel === 'all' ? null : unidadSel
-      const { estudiantes, unidades: uds, rIdx, pIdx } = await getProgresoClaseCompleta(claseId, libroSel, uid)
-      const libroTitulo = libros.find(l => l.id === libroSel)?.titulo || libroSel
-      const rows = [['Estudiante', 'Email', 'Unidad', 'Actividad', 'Tipo', 'Estado', 'Respuesta']]
-      for (const est of estudiantes) {
-        const pSet = pIdx[est.id] || new Set()
-        const rData = rIdx[est.id] || {}
-        for (const u of uds) {
-          for (const act of u.actividades) {
-            if (tipoFiltro && act.tipo !== tipoFiltro) continue
-            const comp = pSet.has(act.id)
-            const resp = rData[act.id]
-            const estado = formatEstado(act.tipo, comp, resp?.es_correcta ?? null)
-            if (estadoFiltro && estado !== estadoFiltro) continue
-            rows.push([
-              est.nombre, est.email, u.titulo, act.titulo,
-              TIPO_LABEL[act.tipo] || act.tipo,
-              estado,
-              formatCSVCell(act.tipo, resp?.respuesta || null),
-            ])
-          }
-        }
-      }
-      downloadCSV(`respuestas_clase_${libroTitulo.replace(/\s+/g, '_')}.csv`, rows)
-    } catch (e) { console.error(e) }
-    finally { setExportandoClase(false) }
   }
 
   const todasActividades = unidadesData.flatMap(u =>
@@ -314,9 +338,9 @@ export default function DocenteRespuestaEstudiante() {
 
   return (
     <div style={{ minHeight: '100vh', fontFamily: 'Nunito', background: C.bg }}>
-      <nav style={{
+      <nav className="responsive-teacher-nav" style={{
         background: `linear-gradient(135deg, ${C.navy}, ${C.navyDark})`,
-        padding: '0 24px', height: 60, display: 'flex', alignItems: 'center', gap: 16,
+        padding: isMobile ? '8px 12px' : '0 24px', height: isMobile ? 'auto' : 60, minHeight: 60, display: 'flex', alignItems: 'center', gap: 16,
         position: 'sticky', top: 0, zIndex: 100, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
       }}>
         <button onClick={() => navigate(`/panel-docente/clase/${claseId}`)} style={{
@@ -348,7 +372,7 @@ export default function DocenteRespuestaEstudiante() {
             {estudiante?.email && <div style={{ fontSize: 13, color: C.textLight }}>{estudiante.email}</div>}
             <div style={{ fontSize: 12, color: C.textLight, marginTop: 2 }}>Clase: <strong style={{ color: C.text }}>{clase?.nombre}</strong></div>
           </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div className="responsive-stat-row" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <StatBadge label="Completadas" value={`${completadas}/${totales}`} color={C.primary} bg={C.primaryLight} />
             <StatBadge label="Correctas" value={correctas} color={C.success} bg={C.successLight} />
             {incorrectas > 0 && <StatBadge label="Incorrectas" value={incorrectas} color={C.danger} bg={C.dangerLight} />}
@@ -356,18 +380,18 @@ export default function DocenteRespuestaEstudiante() {
         </div>
 
         {/* Filters */}
-        <div style={{ ...card, marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
-          <div>
+        <div className="responsive-filter-grid" style={{ ...card, marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center' }}>
+          <div className="responsive-filter-field">
             <label style={{ fontSize: 11, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', marginBottom: 4 }}>Libro</label>
             <select
               value={libroSel}
-              onChange={e => setLibroSel(e.target.value)}
+              onChange={e => handleLibroChange(e.target.value)}
               style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: '7px 12px', fontSize: 13, fontWeight: 600, color: C.text, background: '#fff', fontFamily: 'Nunito' }}
             >
               {libros.map(l => <option key={l.id} value={l.id}>{l.titulo}</option>)}
             </select>
           </div>
-          <div>
+          <div className="responsive-filter-field">
             <label style={{ fontSize: 11, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', marginBottom: 4 }}>Unidad</label>
             <select
               value={unidadSel}
@@ -378,7 +402,7 @@ export default function DocenteRespuestaEstudiante() {
               {unidades.map(u => <option key={u.id} value={u.id}>{u.titulo}</option>)}
             </select>
           </div>
-          <div>
+          <div className="responsive-filter-field">
             <label style={{ fontSize: 11, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', marginBottom: 4 }}>Tipo</label>
             <select
               value={tipoFiltro}
@@ -389,7 +413,7 @@ export default function DocenteRespuestaEstudiante() {
               {tiposDisponibles.map(t => <option key={t} value={t}>{TIPO_LABEL[t] || t}</option>)}
             </select>
           </div>
-          <div>
+          <div className="responsive-filter-field">
             <label style={{ fontSize: 11, fontWeight: 700, color: C.textLight, textTransform: 'uppercase', letterSpacing: 0.6, display: 'block', marginBottom: 4 }}>Estado</label>
             <select
               value={estadoFiltro}
@@ -402,7 +426,7 @@ export default function DocenteRespuestaEstudiante() {
               ))}
             </select>
           </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <div className="responsive-filter-actions" style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             <button
               onClick={() => setDetalleOpen(true)}
               disabled={actividadesFiltradas.length === 0}
@@ -416,13 +440,6 @@ export default function DocenteRespuestaEstudiante() {
               style={exportBtn(C.primary, actividadesFiltradas.length === 0)}
             >
               ↓ Exportar este estudiante
-            </button>
-            <button
-              onClick={handleExportarClase}
-              disabled={exportandoClase || !libroSel}
-              style={exportBtn(C.navy, exportandoClase || !libroSel)}
-            >
-              {exportandoClase ? 'Exportando…' : '↓ Exportar clase completa'}
             </button>
           </div>
         </div>

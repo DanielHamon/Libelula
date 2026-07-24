@@ -60,6 +60,7 @@ async function extractPageText(pdfDoc, pageNum) {
 
 export default function LectorLibro({ pdfUrl, libroId, hotspots = [] }) {
   const windowWidth = useWindowWidth()
+  const isMobile = windowWidth < 768
   const doublePage = windowWidth > 860
 
   const [numPages, setNumPages] = useState(null)
@@ -237,7 +238,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [] }) {
       </div>
 
       {/* Book area */}
-      <div ref={containerRef} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+      <div ref={containerRef} style={{ width: '100%', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 5 : 12, overflow: 'hidden' }}>
         <NavBtn onClick={goPrev} disabled={!canPrev || flipState !== 'idle'} label="←" />
 
         {pageWidth && (

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { getProgreso, marcarCompleta, guardarRespuesta } from '../services/progreso.service'
+import { getProgreso, getRespuestas, marcarCompleta, guardarRespuesta } from '../services/progreso.service'
 import Sidebar from '../components/Sidebar'
 import { ActivityCard, C } from '../components/ActivityCard'
 import { useWindowWidth } from '../hooks/useWindowWidth'
@@ -15,6 +15,7 @@ export default function Unidad() {
   const [unidad, setUnidad] = useState(null)
   const [actividades, setActividades] = useState([])
   const [progreso, setProgreso] = useState({})
+  const [respuestas, setRespuestas] = useState({})
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => { cargarDatos() }, [unidadId])
@@ -24,12 +25,13 @@ export default function Unidad() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      const [{ data: unidadData }, prog] = await Promise.all([
+      const [{ data: unidadData }, prog, respuestasData] = await Promise.all([
         supabase.from('unidades')
           .select('*, actividades(*)')
           .eq('id', unidadId)
           .single(),
         user ? getProgreso(user.id) : Promise.resolve({}),
+        user ? getRespuestas(user.id, libroId) : Promise.resolve({}),
       ])
 
       if (unidadData) {
@@ -40,6 +42,7 @@ export default function Unidad() {
         setActividades(acts)
       }
       setProgreso(prog)
+      setRespuestas(respuestasData)
     } catch (err) { console.error(err) }
     finally { setCargando(false) }
   }
@@ -53,6 +56,10 @@ export default function Unidad() {
       if (respuesta !== undefined) {
         try {
           await guardarRespuesta(user.id, actividadId, libroId, unidadId, respuesta, esCorrecta ?? null)
+          setRespuestas(prev => ({
+            ...prev,
+            [actividadId]: { respuesta, esCorrecta: esCorrecta ?? null },
+          }))
         } catch (e) {
           console.warn('[Libelula] guardarRespuesta falló — código:', e?.code, '| mensaje:', e?.message, '| detalles:', e?.details)
         }
@@ -92,7 +99,7 @@ export default function Unidad() {
         </div>
         <div style={{ flex: 1, overflowX: 'hidden', overflowY: 'scroll', scrollSnapType: 'y mandatory', overscrollBehavior: 'contain' }}>
           {actividades.map((act, idx) => (
-            <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, respuesta, esCorrecta)} snapMode={true} />
+            <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} respuestaGuardada={respuestas[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, respuesta, esCorrecta)} snapMode={true} />
           ))}
           <div style={{ height: 1 }} />
         </div>

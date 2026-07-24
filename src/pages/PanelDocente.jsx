@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { cerrarSesion } from '../lib/session'
 import { getClasesDocente, eliminarClase } from '../services/clases.service'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 
@@ -17,7 +16,6 @@ export default function PanelDocente() {
   const navigate = useNavigate()
   const width = useWindowWidth()
   const isMobile = width < 768
-  const [usuario, setUsuario] = useState(null)
   const [escuela, setEscuela] = useState(null)
   const [clases, setClases] = useState([])
   const [cargando, setCargando] = useState(true)
@@ -27,11 +25,10 @@ export default function PanelDocente() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      setUsuario(user)
       if (!user) return
       const { data: profile } = await supabase
         .from('profiles')
-        .select('nombre, escuelas(nombre)')
+        .select('escuelas(nombre)')
         .eq('id', user.id)
         .single()
       setEscuela(profile?.escuelas?.nombre || null)
@@ -46,11 +43,6 @@ export default function PanelDocente() {
       setClases(data)
     } catch (err) { console.error(err) }
     finally { setCargando(false) }
-  }
-
-  async function handleCerrarSesion() {
-    await cerrarSesion()
-    navigate('/login')
   }
 
   async function handleEliminar() {
@@ -71,9 +63,9 @@ export default function PanelDocente() {
     <div style={{ minHeight: '100vh', fontFamily: 'Nunito', background: C.bg }}>
 
       {/* Top nav */}
-      <nav style={{
+      <nav className="responsive-teacher-nav" style={{
         background: `linear-gradient(135deg, ${C.navy}, ${C.navyDark})`,
-        padding: '0 24px', height: 60, display: 'flex',
+        padding: isMobile ? '8px 12px' : '0 24px', height: isMobile ? 'auto' : 60, minHeight: 60, display: 'flex',
         alignItems: 'center', justifyContent: 'space-between',
         position: 'sticky', top: 0, zIndex: 100,
         boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
@@ -85,17 +77,21 @@ export default function PanelDocente() {
             <div style={{ fontSize: 16, fontWeight: 800, color: '#fff' }}>Panel Docente</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', display: isMobile ? 'none' : 'inline' }}>
-            {usuario?.user_metadata?.nombre || ''}
-          </span>
-          <button onClick={handleCerrarSesion} style={{
-            background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
-            borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 700,
-            cursor: 'pointer', fontFamily: 'Nunito',
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 7,
+          maxWidth: isMobile ? '48%' : 360,
+          background: 'rgba(255,255,255,0.12)',
+          border: '1px solid rgba(255,255,255,0.2)',
+          borderRadius: 9, padding: '6px 12px',
+          color: '#fff',
+        }}>
+          <span style={{ fontSize: 15, flexShrink: 0 }}>🏫</span>
+          <span style={{
+            fontSize: isMobile ? 11 : 13, fontWeight: 700,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
-            Salir
-          </button>
+            {escuela || (cargando ? 'Cargando colegio…' : 'Colegio no asignado')}
+          </span>
         </div>
       </nav>
 
@@ -109,11 +105,6 @@ export default function PanelDocente() {
               <p style={{ fontSize: 14, color: C.textLight, margin: 0 }}>
                 {cargando ? '...' : `${clases.length} clase${clases.length !== 1 ? 's' : ''} creada${clases.length !== 1 ? 's' : ''}`}
               </p>
-              {escuela && (
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.primary, background: C.primaryLight, borderRadius: 8, padding: '2px 10px' }}>
-                  🏫 {escuela}
-                </span>
-              )}
             </div>
           </div>
           <button onClick={() => navigate('/panel-docente/clase/nueva')} style={{
@@ -159,6 +150,7 @@ export default function PanelDocente() {
                 key={clase.id}
                 clase={clase}
                 onClick={() => navigate(`/panel-docente/clase/${clase.id}`)}
+                onEditar={() => navigate(`/panel-docente/clase/${clase.id}?editar=1`)}
                 onEliminar={() => setConfirmEliminar(clase)}
               />
             ))}
@@ -222,20 +214,13 @@ export default function PanelDocente() {
   )
 }
 
-function barColor(pct) {
-  if (pct >= 80) return '#16A34A'
-  if (pct >= 50) return '#2563EB'
-  if (pct >= 20) return '#F97316'
-  return '#EF4444'
-}
-
-function ClaseCard({ clase, onClick, onEliminar }) {
+function ClaseCard({ clase, onClick, onEditar, onEliminar }) {
   const [menuAbierto, setMenuAbierto] = useState(false)
   const libros = clase.libros || []
   const numEstudiantes = clase.estudiantes?.length || 0
   const pct = clase.promedioProgreso || 0
   const activos = clase.estudiantesActivos || 0
-  const color = barColor(pct)
+  const color = C.primary
 
   return (
     <div
@@ -253,7 +238,9 @@ function ClaseCard({ clase, onClick, onEliminar }) {
 
         {/* Nombre + menú ⋯ */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-          <div style={{ fontSize: 17, fontWeight: 800, color: C.text, lineHeight: 1.3 }}>{clase.nombre}</div>
+          <div style={{ fontSize: 17, fontWeight: 800, color: C.text, lineHeight: 1.3 }}>
+            <span style={{ marginRight: 7 }}>{clase.emoji || '🏫'}</span>{clase.nombre}
+          </div>
           <div style={{ position: 'relative', flexShrink: 0 }}>
             <button
               onClick={e => { e.stopPropagation(); setMenuAbierto(o => !o) }}
@@ -277,13 +264,27 @@ function ClaseCard({ clase, onClick, onEliminar }) {
                   border: `1px solid ${C.border}`, overflow: 'hidden',
                 }}>
                   <button
+                    onClick={e => { e.stopPropagation(); setMenuAbierto(false); onEditar() }}
+                    onMouseEnter={e => e.currentTarget.style.background = C.primaryLight}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      width: '100%', padding: '10px 16px',
+                      background: 'none', border: 'none', textAlign: 'left',
+                      fontSize: 13, fontWeight: 700, color: C.primary,
+                      cursor: 'pointer', fontFamily: 'Nunito',
+                    }}
+                  >
+                    ✏️ Editar clase
+                  </button>
+                  <button
                     onClick={e => { e.stopPropagation(); setMenuAbierto(false); onEliminar() }}
                     onMouseEnter={e => e.currentTarget.style.background = '#FEF2F2'}
                     onMouseLeave={e => e.currentTarget.style.background = 'none'}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 8,
                       width: '100%', padding: '10px 16px',
-                      background: 'none', border: 'none', textAlign: 'left',
+                      background: 'none', border: 'none', borderTop: `1px solid ${C.border}`, textAlign: 'left',
                       fontSize: 13, fontWeight: 700, color: '#EF4444',
                       cursor: 'pointer', fontFamily: 'Nunito',
                     }}

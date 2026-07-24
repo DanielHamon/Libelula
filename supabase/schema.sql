@@ -160,6 +160,7 @@ CREATE TABLE tokens (
 CREATE TABLE clases (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre     TEXT NOT NULL,
+  emoji      TEXT NOT NULL DEFAULT '🏫',
   codigo     TEXT UNIQUE NOT NULL,
   docente_id UUID NOT NULL REFERENCES profiles(id),
   escuela_id UUID    REFERENCES escuelas(id),

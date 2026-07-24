@@ -92,7 +92,7 @@ function cellFromPoint(x, y) {
 }
 
 // ── Activity card wrapper ─────────────────────────────────────────────────────
-export function ActivityCard({ act, numero, isMobile, completada, onComplete, snapMode = true, primaryColor }) {
+export function ActivityCard({ act, numero, isMobile, completada, respuestaGuardada, onComplete, snapMode = true, primaryColor }) {
   const typeCfg = TIPO_CONFIG[act.tipo] || { icon: '📄', label: act.tipo || 'Actividad', color: C.textMuted, bg: '#F3F4F6' }
   const primary = primaryColor || typeCfg.color
   const primaryLight = primaryColor ? `${primaryColor}18` : typeCfg.bg
@@ -100,7 +100,7 @@ export function ActivityCard({ act, numero, isMobile, completada, onComplete, sn
   const cardStyle = snapMode ? {
     scrollSnapAlign: 'start',
     minHeight: '100%',
-    padding: isMobile ? '28px 20px 44px' : '48px 56px 56px',
+    padding: isMobile ? '20px 14px 36px' : '48px 56px 56px',
     borderBottom: `2px solid ${C.border}`,
     background: C.bg,
   } : {
@@ -108,7 +108,7 @@ export function ActivityCard({ act, numero, isMobile, completada, onComplete, sn
     border: `2px solid ${primaryLight}`,
     borderRadius: 18,
     boxShadow: `0 4px 24px ${primary}18`,
-    padding: isMobile ? '22px 20px 28px' : '28px 36px 36px',
+    padding: isMobile ? '18px 14px 24px' : '28px 36px 36px',
     marginBottom: 20,
   }
 
@@ -118,7 +118,7 @@ export function ActivityCard({ act, numero, isMobile, completada, onComplete, sn
       display: 'flex', flexDirection: 'column', gap: 22,
       boxSizing: 'border-box',
     }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: isMobile ? 10 : 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
         <div style={{
           width: isMobile ? 42 : 50, height: isMobile ? 42 : 50, borderRadius: '50%', flexShrink: 0,
           background: cfg.color, color: C.white,
@@ -126,7 +126,7 @@ export function ActivityCard({ act, numero, isMobile, completada, onComplete, sn
           fontFamily: "'Fredoka One', cursive", fontSize: isMobile ? 18 : 22,
           boxShadow: `0 3px 12px ${cfg.color}55`,
         }}>{numero}</div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: isMobile ? 'calc(100% - 54px)' : 0 }}>
           <div style={{ fontSize: isMobile ? 18 : 23, fontWeight: 800, color: primary, lineHeight: 1.3 }}>
             {act.tipo === 'termometroEmocional' ? (act.label || act.titulo) : act.titulo}
           </div>
@@ -135,21 +135,21 @@ export function ActivityCard({ act, numero, isMobile, completada, onComplete, sn
           </span>
         </div>
         {completada && (
-          <span style={{ flexShrink: 0, background: C.greenLight, color: C.green, fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 20 }}>
+          <span style={{ flexShrink: 0, marginLeft: isMobile ? 52 : 0, background: C.greenLight, color: C.green, fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 20 }}>
             ✅ Listo
           </span>
         )}
       </div>
       <div>
-        <ActivityContent act={act} isMobile={isMobile} completada={completada} onComplete={onComplete} primaryColor={primary} />
+        <ActivityContent act={act} isMobile={isMobile} completada={completada} respuestaGuardada={respuestaGuardada?.respuesta} onComplete={onComplete} primaryColor={primary} />
       </div>
     </div>
   )
 }
 
 // ── Dispatcher ────────────────────────────────────────────────────────────────
-function ActivityContent({ act, isMobile, completada, onComplete, primaryColor }) {
-  const p = { key: act.id, isMobile, completada, onComplete, primaryColor }
+function ActivityContent({ act, isMobile, completada, respuestaGuardada, onComplete, primaryColor }) {
+  const p = { key: act.id, isMobile, completada, savedAnswer: respuestaGuardada, onComplete, primaryColor }
   const maxIntentos = act.maxIntentos ?? 2
   switch (act.tipo) {
     case 'video':             return <VideoActividad url={act.url} titulo={act.videoTitulo} />
@@ -452,7 +452,7 @@ function SopaLetras({ isMobile, onComplete, alreadyComplete, palabras, numPalabr
 }
 
 // ── Clasificación por categorías ──────────────────────────────────────────────
-function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onComplete, completada, maxIntentos = 2 }) {
+function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onComplete, completada, savedAnswer, maxIntentos = 2 }) {
   const normalizedCategories = categorias.map((cat, idx) => ({
     id: String(cat.id ?? cat.key ?? norm(cat.label || cat.nombre || `categoria-${idx + 1}`)),
     label: cat.label || cat.nombre || `Categoría ${idx + 1}`,
@@ -465,7 +465,9 @@ function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onC
     categoriaId: String(item.categoriaId ?? item.categoria ?? item.respuesta ?? fallbackCat),
   })).filter(item => item.texto)
 
-  const [placements, setPlacements] = useState({})
+  const [placements, setPlacements] = useState(() => Object.fromEntries(
+    (savedAnswer?.clasificaciones || []).map(item => [String(item.id), String(item.categoriaElegidaId)])
+  ))
   const [selectedItem, setSelectedItem] = useState(null)
   const [verificado, setVerificado] = useState(false)
   const [verificaciones, setVerificaciones] = useState(0)
@@ -676,7 +678,7 @@ function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onC
 }
 
 // ── Separar en sílabas ────────────────────────────────────────────────────────
-function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, completada, maxIntentos = 2 }) {
+function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, completada, savedAnswer, maxIntentos = 2 }) {
   const rows = palabras.map((item, idx) => {
     const palabra = item.palabra || item.texto || item.word || ''
     const silabas = item.silabas || item.respuesta || item.correcta || ''
@@ -689,7 +691,12 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
     }
   }).filter(item => item.palabra && item.silabas && item.cantidad)
 
-  const [respuestas, setRespuestas] = useState({})
+  const [respuestas, setRespuestas] = useState(() => Object.fromEntries(
+    rows.map((row, index) => [row.id, {
+      silabas: savedAnswer?.respuestas?.[index]?.silabasDadas || '',
+      cantidad: savedAnswer?.respuestas?.[index]?.cantidadDada || '',
+    }])
+  ))
   const [verificado, setVerificado] = useState(false)
   const [intentos, setIntentos] = useState(0)
   const [agotado, setAgotado] = useState(false)
@@ -811,7 +818,7 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
 }
 
 // ── Acróstico ─────────────────────────────────────────────────────────────────
-function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, banco, isMobile, onComplete, completada, maxIntentos = 2 }) {
+function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, banco, isMobile, onComplete, completada, savedAnswer, maxIntentos = 2 }) {
   const baseLetters = (letras?.length ? letras : String(palabra || '').split('')).map((l, idx) => ({
     id: `linea-${idx + 1}`,
     letra: String(l || '').toUpperCase(),
@@ -830,6 +837,9 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
 
   const storageKey = `acrostico_${actividadId}`
   const [respuestas, setRespuestas] = useState(() => {
+    if (savedAnswer?.respuestas) {
+      return Object.fromEntries(rows.map((row, index) => [row.id, savedAnswer.respuestas[index]?.texto || '']))
+    }
     try { return JSON.parse(localStorage.getItem(storageKey)) || {} } catch { return {} }
   })
   const [estrellas, setEstrellas] = useState(() => {
@@ -1005,7 +1015,7 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
 }
 
 // ── Crucigrama ────────────────────────────────────────────────────────────────
-function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas, pistas, isMobile, onComplete, completada }) {
+function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas, pistas, isMobile, onComplete, completada, savedAnswer }) {
   const words = palabras.map((item, idx) => {
     const texto = item.w || item.palabra || item.texto || ''
     const direccionRaw = item.d || item.direccion || item.dir || 'h'
@@ -1031,6 +1041,9 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
   const inputRefs = useRef({})
 
   const [respuestas, setRespuestas] = useState(() => {
+    if (savedAnswer?.respuestas) {
+      return Object.fromEntries(savedAnswer.respuestas.map(item => [item.celda, item.letraDada || '']))
+    }
     try { return JSON.parse(localStorage.getItem(storageKey)) || {} } catch { return {} }
   })
   const [showPista, setShowPista] = useState(false)
@@ -1903,8 +1916,11 @@ function ExploracionInteractiva({
 }
 
 // ── Selección múltiple ────────────────────────────────────────────────────────
-function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroalimentacion, retroalimentacionError, onComplete, completada, maxIntentos = 2, primaryColor = C.pink }) {
-  const [seleccionadas, setSeleccionadas] = useState(() => new Set())
+function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroalimentacion, retroalimentacionError, onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
+  const [seleccionadas, setSeleccionadas] = useState(() => new Set(
+    savedAnswer?.seleccionadasIndices
+      ?? opciones.map((op, idx) => savedAnswer?.seleccionadas?.includes(op.texto) ? idx : null).filter(idx => idx != null)
+  ))
   const [resultado, setResultado] = useState(null)
   const [intentos, setIntentos] = useState(0)
   const [showPista, setShowPista] = useState(false)
@@ -2108,8 +2124,10 @@ function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroa
 }
 
 // ── Verdadero / Falso ─────────────────────────────────────────────────────────
-function VerdaderoFalso({ afirmaciones, onComplete, completada }) {
-  const [respuestas, setRespuestas] = useState({})
+function VerdaderoFalso({ afirmaciones, onComplete, completada, savedAnswer }) {
+  const [respuestas, setRespuestas] = useState(() => Object.fromEntries(
+    (savedAnswer?.respuestas || []).map((item, index) => [index, item.respondio])
+  ))
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
   function responder(idx, valor) {
     if (respuestas[idx] !== undefined) return
@@ -2149,11 +2167,11 @@ function extractCompletionAnswers(texto) {
   return matches.map(match => (match[1] ?? match[2] ?? '').trim()).filter(Boolean)
 }
 
-function CompletarPalabras({ texto, respuestas, onComplete, completada, maxIntentos = 2, primaryColor = C.pink }) {
+function CompletarPalabras({ texto, respuestas, onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
   const detectedAnswers = extractCompletionAnswers(texto)
   const correctas = detectedAnswers.length > 0 ? detectedAnswers : respuestas
   const partes = String(texto || '').split(/(\[[^\]\n]+\]|\{\{[^}\n]+\}\})/g)
-  const [valores, setValores] = useState(() => Array(correctas.length).fill(''))
+  const [valores, setValores] = useState(() => correctas.map((_, index) => savedAnswer?.respuestas?.[index]?.dada || ''))
   const [verificado, setVerificado] = useState(false)
   const [resultados, setResultados] = useState([])
   const [verificaciones, setVerificaciones] = useState(0)
@@ -2277,11 +2295,19 @@ function mezclarIndices(total) {
   return indices.map((_, index) => (index + offset) % total)
 }
 
-function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoArea = 'Tu oración:', onComplete, completada, maxIntentos = 2, primaryColor = C.teal }) {
+function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoArea = 'Tu oración:', onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.teal }) {
   const correctas = palabras.length > 0 ? palabras : String(fraseCorrecta || '').trim().split(/\s+/).filter(Boolean)
   const wordsKey = JSON.stringify(correctas)
   const [ordenBanco, setOrdenBanco] = useState(() => mezclarIndices(correctas.length))
-  const [seleccionadas, setSeleccionadas] = useState([])
+  const [seleccionadas, setSeleccionadas] = useState(() => {
+    const savedWords = String(savedAnswer?.frase || '').trim().split(/\s+/).filter(Boolean)
+    const used = new Set()
+    return savedWords.map(word => {
+      const index = correctas.findIndex((item, idx) => item === word && !used.has(idx))
+      if (index >= 0) used.add(index)
+      return index
+    }).filter(index => index >= 0)
+  })
   const [showPista, setShowPista] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [intentos, setIntentos] = useState(0)
@@ -2291,7 +2317,7 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
   useEffect(() => {
     const next = JSON.parse(wordsKey)
     setOrdenBanco(mezclarIndices(next.length))
-    setSeleccionadas([])
+    if (!completada) setSeleccionadas([])
     setResultado(null)
     setIntentos(0)
   }, [wordsKey])
@@ -2381,9 +2407,11 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
 }
 
 // ── Ordenar eventos ───────────────────────────────────────────────────────────
-function OrdenarEventos({ instruccion, eventos, onComplete, completada, maxIntentos = 2 }) {
+function OrdenarEventos({ instruccion, eventos, onComplete, completada, savedAnswer, maxIntentos = 2 }) {
   const eventsKey = JSON.stringify(eventos)
-  const [items, setItems] = useState(() => [...eventos].sort(() => Math.random() - 0.5))
+  const [items, setItems] = useState(() => savedAnswer?.orden?.length
+    ? savedAnswer.orden.map(texto => eventos.find(item => item.texto === texto)).filter(Boolean)
+    : [...eventos].sort(() => Math.random() - 0.5))
   const [verificado, setVerificado] = useState(false)
   const [correcto, setCorrecto] = useState(false)
   const [verificaciones, setVerificaciones] = useState(0)
@@ -2395,7 +2423,7 @@ function OrdenarEventos({ instruccion, eventos, onComplete, completada, maxInten
 
   useEffect(() => {
     const nextEvents = JSON.parse(eventsKey)
-    setItems([...nextEvents].sort(() => Math.random() - 0.5))
+    if (!completada) setItems([...nextEvents].sort(() => Math.random() - 0.5))
     setVerificado(false)
     setCorrecto(false)
     setVerificaciones(0)
@@ -2502,9 +2530,9 @@ function OrdenarEventos({ instruccion, eventos, onComplete, completada, maxInten
 }
 
 // ── Escribir carta ────────────────────────────────────────────────────────────
-function EscribirCarta({ actividadId, destinatario, promptTexto, placeholder = 'Escribe aquí tu carta...', onComplete, completada }) {
+function EscribirCarta({ actividadId, destinatario, promptTexto, placeholder = 'Escribe aquí tu carta...', onComplete, completada, savedAnswer }) {
   const key = `carta_${actividadId}`
-  const [texto, setTexto] = useState(() => localStorage.getItem(key) || '')
+  const [texto, setTexto] = useState(() => savedAnswer?.texto || localStorage.getItem(key) || '')
   const [guardado, setGuardado] = useState(false)
   const saveTimer = useRef(null), onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
   function handleChange(e) { const v = e.target.value; setTexto(v); setGuardado(false); if (saveTimer.current) clearTimeout(saveTimer.current); saveTimer.current = setTimeout(() => { localStorage.setItem(key, v); setGuardado(true) }, 500) }
@@ -2512,7 +2540,7 @@ function EscribirCarta({ actividadId, destinatario, promptTexto, placeholder = '
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {destinatario && <div style={{ background: C.orangeLight, border: `1px solid #ffcc80`, borderRadius: 12, padding: '10px 14px' }}><span style={{ fontSize: 13, fontWeight: 700, color: C.orange }}>Para: </span><span style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{destinatario}</span></div>}
       {promptTexto && <p style={{ fontSize: 14, fontWeight: 600, color: C.textMuted, margin: 0, fontStyle: 'italic' }}>{promptTexto}</p>}
-      <textarea value={texto} onChange={handleChange} placeholder={placeholder} style={{ width: '100%', minHeight: 150, padding: 14, boxSizing: 'border-box', border: `2px solid ${C.pinkLight}`, borderRadius: 12, fontFamily: 'Nunito', fontSize: 14, color: C.text, resize: 'vertical', outline: 'none', background: '#fff', lineHeight: 1.7 }} onFocus={e => { e.target.style.borderColor = C.pink }} onBlur={e => { e.target.style.borderColor = C.pinkLight }} />
+      <textarea value={texto} onChange={handleChange} disabled={completada} placeholder={placeholder} style={{ width: '100%', minHeight: 150, padding: 14, boxSizing: 'border-box', border: `2px solid ${C.pinkLight}`, borderRadius: 12, fontFamily: 'Nunito', fontSize: 14, color: C.text, resize: 'vertical', outline: 'none', background: '#fff', lineHeight: 1.7 }} onFocus={e => { e.target.style.borderColor = C.pink }} onBlur={e => { e.target.style.borderColor = C.pinkLight }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {!completada ? <button onClick={() => { localStorage.setItem(key, texto); if (!completada) onCompleteRef.current({ texto }, null) }} disabled={!texto.trim()} style={btnP(texto.trim() ? C.pink : C.border)}>✉️ Entregar carta</button>
           : <span style={{ background: C.greenLight, color: C.green, fontSize: 13, fontWeight: 700, padding: '6px 14px', borderRadius: 20 }}>✅ Carta entregada</span>}
@@ -2523,9 +2551,12 @@ function EscribirCarta({ actividadId, destinatario, promptTexto, placeholder = '
 }
 
 // ── Completar mapa ────────────────────────────────────────────────────────────
-function CompletarMapa({ actividadId, instruccion, nodos, onComplete, completada }) {
+function CompletarMapa({ actividadId, instruccion, nodos, onComplete, completada, savedAnswer }) {
   const key = `mapa_${actividadId}`
-  const [valores, setValores] = useState(() => { try { return JSON.parse(localStorage.getItem(key)) || {} } catch { return {} } })
+  const [valores, setValores] = useState(() => {
+    if (savedAnswer?.valores) return savedAnswer.valores
+    try { return JSON.parse(localStorage.getItem(key)) || {} } catch { return {} }
+  })
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
   function handleChange(id, val) { const n = { ...valores, [id]: val }; setValores(n); localStorage.setItem(key, JSON.stringify(n)) }
   const todosLlenos = nodos.length > 0 && nodos.every(n => (valores[n.id] || '').trim())
@@ -2565,11 +2596,16 @@ function desordenarSinCoincidencias(pares) {
   return pares.map((_, index) => pares[(index + offset) % pares.length])
 }
 
-function Emparejar({ pares, instruccion, encabezadoIzquierda = 'Elemento', encabezadoDerecha = '¿Qué hace?', onComplete, completada, isMobile, maxIntentos = 2, primaryColor = C.blue }) {
+function Emparejar({ pares, instruccion, encabezadoIzquierda = 'Elemento', encabezadoDerecha = '¿Qué hace?', onComplete, completada, savedAnswer, isMobile, maxIntentos = 2, primaryColor = C.blue }) {
   const pairKey = JSON.stringify(pares)
   const [derechaShuffled, setDerechaShuffled] = useState(() => desordenarSinCoincidencias(pares))
   const [selIzqIdx, setSelIzqIdx] = useState(null)
-  const [matchedPairs, setMatchedPairs] = useState(() => new Set())
+  const savedMatchedIndices = () => new Set(
+    pares.map((par, index) => savedAnswer?.parejas?.some(saved =>
+      saved.izquierda === par.izquierda && saved.derecha === par.derecha
+    ) ? index : null).filter(index => index != null)
+  )
+  const [matchedPairs, setMatchedPairs] = useState(savedMatchedIndices)
   const [wrongDerIdx, setWrongDerIdx] = useState(null)
   const [gameWon, setGameWon] = useState(completada)
   const [errores, setErrores] = useState(0)
@@ -2581,7 +2617,7 @@ function Emparejar({ pares, instruccion, encabezadoIzquierda = 'Elemento', encab
     const nextPairs = JSON.parse(pairKey)
     setDerechaShuffled(desordenarSinCoincidencias(nextPairs))
     setSelIzqIdx(null)
-    setMatchedPairs(new Set())
+    setMatchedPairs(completada ? savedMatchedIndices() : new Set())
     setWrongDerIdx(null)
     setGameWon(completada)
     setErrores(0)
@@ -2695,8 +2731,10 @@ function DibujoLibre({ actividadId, instruccion, isMobile, onComplete, completad
 }
 
 // ── Identificar ───────────────────────────────────────────────────────────────
-function IdentificarActividad({ instruccion, opciones, onComplete, completada, maxIntentos = 2, primaryColor = C.pink }) {
-  const [sel, setSel] = useState(new Set())
+function IdentificarActividad({ instruccion, opciones, onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
+  const [sel, setSel] = useState(() => new Set(
+    opciones.map((op, index) => savedAnswer?.seleccionadas?.includes(op.texto) ? index : null).filter(index => index != null)
+  ))
   const [verificado, setVerificado] = useState(false)
   const [verificaciones, setVerificaciones] = useState(0)
   const [agotado, setAgotado] = useState(false)
@@ -2791,9 +2829,14 @@ function IdentificarActividad({ instruccion, opciones, onComplete, completada, m
 // ── Línea de tiempo emocional ─────────────────────────────────────────────────
 function LineaTiempoEmocional({
   instruccion, pista, momentos, retroalimentacion, retroalimentacionError,
-  onComplete, completada, maxIntentos = 2, primaryColor = C.purple,
+  onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.purple,
 }) {
-  const [selecciones, setSelecciones] = useState({})
+  const [selecciones, setSelecciones] = useState(() => Object.fromEntries(
+    momentos.map((momento, index) => [
+      index,
+      momento.opciones?.findIndex(opcion => opcion.texto === savedAnswer?.momentos?.[index]?.seleccion),
+    ]).filter(([, optionIndex]) => optionIndex >= 0)
+  ))
   const [resultadosMomento, setResultadosMomento] = useState({})
   const [showPista, setShowPista] = useState(false)
   const [resultado, setResultado] = useState(null)
@@ -2888,13 +2931,14 @@ function LineaTiempoEmocional({
 function ReflexionPersonal({
   actividadId, instruccion, opciones, preguntaAbierta,
   placeholder = 'Escribe aquí tu reflexión…', textoBoton = 'Guardar reflexión',
-  onComplete, completada, primaryColor = C.purple,
+  onComplete, completada, savedAnswer, primaryColor = C.purple,
 }) {
   const storageKey = `reflexion_personal_${actividadId}`
   const [seleccionadas, setSeleccionadas] = useState(() => {
+    if (savedAnswer?.seleccionadasIndices) return new Set(savedAnswer.seleccionadasIndices)
     try { return new Set(JSON.parse(localStorage.getItem(`${storageKey}_seleccionadas`)) || []) } catch { return new Set() }
   })
-  const [respuesta, setRespuesta] = useState(() => localStorage.getItem(`${storageKey}_respuesta`) || '')
+  const [respuesta, setRespuesta] = useState(() => savedAnswer?.respuesta || localStorage.getItem(`${storageKey}_respuesta`) || '')
   const [guardada, setGuardada] = useState(completada)
   const firedRef = useRef(false)
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
@@ -2967,7 +3011,7 @@ function ReflexionPersonal({
 }
 
 // ── Termómetro emocional ──────────────────────────────────────────────────────
-function TermometroEmocional({ actividadId, instruccion, label, emoji, estados, escalas, min = 0, max = 100, minLabel = 'Muy poco', maxLabel = 'Mucho', onComplete, completada }) {
+function TermometroEmocional({ actividadId, instruccion, label, emoji, estados, escalas, min = 0, max = 100, minLabel = 'Muy poco', maxLabel = 'Mucho', onComplete, completada, savedAnswer }) {
   const escalaLegacy = escalas?.[0] || {}
   const titulo = label || escalaLegacy.label || '¿Cómo se siente el personaje?'
   const icono = emoji || escalaLegacy.emoji || '🌡️'
@@ -2982,6 +3026,7 @@ function TermometroEmocional({ actividadId, instruccion, label, emoji, estados, 
     { id: '4', desde: Math.round(safeMin + (safeMax - safeMin) * 0.75), emoji: '😨', texto: 'Mucho' },
   ]).slice().sort((a, b) => Number(a.desde ?? safeMin) - Number(b.desde ?? safeMin))
   const [valor, setValorState] = useState(() => {
+    if (Number.isFinite(Number(savedAnswer?.valor))) return Number(savedAnswer.valor)
     try {
       const saved = JSON.parse(localStorage.getItem(key))
       if (typeof saved === 'number') return saved

@@ -14,6 +14,7 @@ import DocenteRespuestaEstudiante from './pages/DocenteRespuestaEstudiante'
 import RutaProtegida from './components/RutaProtegida'
 import RutaProtegidaDocente from './components/RutaProtegidaDocente'
 import RutaProtegidaAdmin from './components/RutaProtegidaAdmin'
+import DocenteLayout from './components/DocenteLayout'
 import PanelAdmin from './pages/admin/PanelAdmin'
 import AdminEscuelas from './pages/admin/AdminEscuelas'
 import AdminLibros from './pages/admin/AdminLibros'
@@ -89,10 +90,12 @@ function AppRoutes() {
         <Route path="/libro/:libroId/unidad/:unidadId" element={<RutaProtegida><Unidad /></RutaProtegida>} />
         <Route path="/libro/:libroId/unidad/:unidadId/actividad/:actividadId" element={<RutaProtegida><Actividad /></RutaProtegida>} />
         <Route path="/unirse-clase" element={<RutaProtegida><UnirseClase /></RutaProtegida>} />
-        <Route path="/panel-docente" element={<RutaProtegidaDocente><PanelDocente /></RutaProtegidaDocente>} />
-        <Route path="/panel-docente/clase/nueva" element={<RutaProtegidaDocente><NuevaClase /></RutaProtegidaDocente>} />
-        <Route path="/panel-docente/clase/:claseId" element={<RutaProtegidaDocente><ClaseDetalle /></RutaProtegidaDocente>} />
-        <Route path="/panel-docente/clase/:claseId/estudiante/:estudianteId" element={<RutaProtegidaDocente><DocenteRespuestaEstudiante /></RutaProtegidaDocente>} />
+        <Route element={<RutaProtegidaDocente><DocenteLayout /></RutaProtegidaDocente>}>
+          <Route path="/panel-docente" element={<PanelDocente />} />
+          <Route path="/panel-docente/clase/nueva" element={<NuevaClase />} />
+          <Route path="/panel-docente/clase/:claseId" element={<ClaseDetalle />} />
+          <Route path="/panel-docente/clase/:claseId/estudiante/:estudianteId" element={<DocenteRespuestaEstudiante />} />
+        </Route>
 
         <Route path="/admin" element={<RutaProtegidaAdmin><PanelAdmin /></RutaProtegidaAdmin>} />
         <Route path="/admin/escuelas" element={<RutaProtegidaAdmin><AdminEscuelas /></RutaProtegidaAdmin>} />

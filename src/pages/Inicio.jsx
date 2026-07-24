@@ -113,11 +113,11 @@ export default function Inicio() {
         <div style={{
           background: `linear-gradient(135deg, ${C.primary}, ${C.primaryDark})`,
           padding: isMobile ? '24px 20px' : '32px 40px', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
         }}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 14, opacity: 0.8 }}>¡Hola de nuevo! 👋</div>
-            <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800 }}>{nombreUsuario}</div>
+            <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, overflowWrap: 'anywhere' }}>{nombreUsuario}</div>
             <div style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>
               {libros.length > 0 ? `${libros.length} libro${libros.length > 1 ? 's' : ''} activado${libros.length > 1 ? 's' : ''}` : 'Activa tu primer libro'}
             </div>
