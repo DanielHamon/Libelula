@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getLibroConUnidades } from '../services/libros.service'
-import { getProgreso, getRespuestas, marcarCompleta, guardarRespuesta } from '../services/progreso.service'
+import { evaluarIntento, getProgreso, getRespuestas, registrarProgreso } from '../services/progreso.service'
 import Sidebar from '../components/Sidebar'
 import LectorLibro from '../components/LectorLibro'
 import { ActivityCard } from '../components/ActivityCard'
@@ -16,6 +16,15 @@ const TABS = [
 
 export default function Libro() {
   const { libroId } = useParams()
+  const navStorageKey = `iabooks:libro:${libroId}:navegacion`
+  const initialNav = useRef(null)
+  if (initialNav.current === null) {
+    try {
+      initialNav.current = JSON.parse(sessionStorage.getItem(navStorageKey)) || {}
+    } catch {
+      initialNav.current = {}
+    }
+  }
   const navigate = useNavigate()
   const width = useWindowWidth()
   const isMobile = width < 768
@@ -23,10 +32,13 @@ export default function Libro() {
   const [unidades, setUnidades] = useState([])
   const [progreso, setProgreso] = useState({})
   const [respuestas, setRespuestas] = useState({})
+  const [errorProgreso, setErrorProgreso] = useState('')
   const [cargando, setCargando] = useState(true)
-  const [tab, setTab] = useState('leer')
-  const [seccionActiva, setSeccionActiva] = useState(0)
+  const [errorCarga, setErrorCarga] = useState(null)
+  const [tab, setTab] = useState(() => initialNav.current.tab || 'leer')
+  const [seccionActiva, setSeccionActiva] = useState(() => Number(initialNav.current.seccion) || 0)
   const scrollRef = useRef(null)
+  const actividadesScrollRef = useRef(null)
 
   const accent = libro?.color_acento || '#e91e8c'
   const headerStart = libro?.color_encabezado_inicio || accent
@@ -36,15 +48,55 @@ export default function Libro() {
 
   useEffect(() => { cargarDatos() }, [libroId])
 
+  useEffect(() => {
+    if (cargando || tab !== 'actividades' || !actividadesScrollRef.current) return
+    const top = Number(initialNav.current.scrollTop) || 0
+    const frame = requestAnimationFrame(() => {
+      if (actividadesScrollRef.current) actividadesScrollRef.current.scrollTop = top
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [cargando, tab, seccionActiva])
+
+  function saveNavigation(patch) {
+    const next = {
+      tab,
+      seccion: seccionActiva,
+      scrollTop: actividadesScrollRef.current?.scrollTop || 0,
+      ...patch,
+    }
+    initialNav.current = next
+    sessionStorage.setItem(navStorageKey, JSON.stringify(next))
+  }
+
+  function cambiarTab(nextTab) {
+    saveNavigation({ tab: nextTab })
+    setTab(nextTab)
+  }
+
+  function cambiarSeccion(index) {
+    saveNavigation({ seccion: index, scrollTop: 0 })
+    setSeccionActiva(index)
+  }
+
   async function cargarDatos() {
+    setCargando(true)
+    setErrorCarga(null)
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      const [{ libro: libroData, unidades: unidadesData }, prog, respuestasData] = await Promise.all([
+      const [libroResult, prog, respuestasData] = await Promise.all([
         getLibroConUnidades(libroId),
         user ? getProgreso(user.id) : Promise.resolve({}),
         user ? getRespuestas(user.id, libroId) : Promise.resolve({}),
       ])
-      if (!libroData) return
+      if (libroResult.error) {
+        setErrorCarga(libroResult.error)
+        return
+      }
+      const { libro: libroData, unidades: unidadesData } = libroResult
+      if (!libroData) {
+        setErrorCarga('no_encontrado')
+        return
+      }
       if (user) rememberRecentBook(user.id, { ...libroData, id: libroData.id || libroId })
       setLibro(libroData)
       setUnidades(unidadesData)
@@ -55,24 +107,47 @@ export default function Libro() {
   }
 
   async function guardarProgreso(actividadId, unidadId, respuesta, esCorrecta) {
+    setErrorProgreso('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      await marcarCompleta(user.id, libroId, actividadId)
+      await registrarProgreso(
+        actividadId,
+        respuesta !== undefined && unidadId
+          ? { valor: respuesta, esCorrecta: esCorrecta ?? null }
+          : undefined
+      )
       setProgreso(prev => ({ ...prev, [actividadId]: true }))
       if (respuesta !== undefined && unidadId) {
-        try {
-          await guardarRespuesta(user.id, actividadId, libroId, unidadId, respuesta, esCorrecta ?? null)
-          setRespuestas(prev => ({
-            ...prev,
-            [actividadId]: { respuesta, esCorrecta: esCorrecta ?? null },
-          }))
-        } catch (e) {
-          console.warn('[Libelula] guardarRespuesta falló:', e?.code, e?.message)
-        }
+        setRespuestas(prev => ({
+          ...prev,
+          [actividadId]: { respuesta, esCorrecta: esCorrecta ?? null },
+        }))
       }
     } catch (e) {
       console.error('guardarProgreso:', e)
+      setErrorProgreso('No pudimos guardar tu progreso. Inténtalo de nuevo.')
+    }
+  }
+
+  async function verificarIntento(actividadId, respuesta) {
+    setErrorProgreso('')
+    try {
+      const resultado = await evaluarIntento(actividadId, respuesta)
+      if (resultado.completada) {
+        setProgreso(prev => ({ ...prev, [actividadId]: true }))
+        setRespuestas(prev => ({
+          ...prev,
+          [actividadId]: {
+            respuesta,
+            esCorrecta: resultado.esCorrecta,
+          },
+        }))
+      }
+      return resultado
+    } catch (error) {
+      setErrorProgreso('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
+      throw error
     }
   }
 
@@ -88,6 +163,59 @@ export default function Libro() {
       </div>
     </div>
   )
+
+  if (errorCarga) {
+    const accesoDenegado = errorCarga === 'acceso_denegado'
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Nunito', background: '#F8FAFC' }}>
+        <Sidebar />
+        <main style={{
+          flex: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: isMobile ? '80px 20px 24px' : 32,
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: 440,
+            padding: '36px 28px',
+            textAlign: 'center',
+            background: '#fff',
+            border: '1px solid #E5E7EB',
+            borderRadius: 20,
+            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+          }}>
+            <div style={{ fontSize: 52, marginBottom: 14 }}>{accesoDenegado ? '🔒' : '⚠️'}</div>
+            <h1 style={{ margin: '0 0 10px', color: '#1F2937', fontSize: 23, fontWeight: 900 }}>
+              {accesoDenegado ? 'Libro no disponible' : 'No pudimos abrir el libro'}
+            </h1>
+            <p style={{ margin: '0 0 24px', color: '#6B7280', lineHeight: 1.6, fontSize: 14 }}>
+              {accesoDenegado
+                ? 'Este libro no está activado en tu cuenta.'
+                : 'El libro no existe o hubo un problema al cargarlo.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate('/inicio', { replace: true })}
+              style={{
+                border: 0,
+                borderRadius: 11,
+                padding: '12px 20px',
+                background: '#2563EB',
+                color: '#fff',
+                fontFamily: 'Nunito',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Volver a mis libros
+            </button>
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   const pdfUrl = libro?.pdf_url || null
   const hotspots = libro?.hotspots || []
@@ -141,10 +269,16 @@ export default function Libro() {
           </div>
         </div>
 
+        {errorProgreso && (
+          <div role="alert" style={{ padding: '10px 16px', background: '#FEE2E2', color: '#991B1B', fontWeight: 700, textAlign: 'center' }}>
+            {errorProgreso}
+          </div>
+        )}
+
         {/* ── Tab bar ── */}
         <div style={{ display: 'flex', background: '#fff', borderBottom: `3px solid ${accentLight}`, overflowX: 'auto', flexShrink: 0, scrollbarWidth: 'none' }}>
           {tabList.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)} style={{
+            <button key={t.id} onClick={() => cambiarTab(t.id)} style={{
               padding: isMobile ? '11px 12px' : '13px 18px',
               border: 'none', background: 'none', cursor: 'pointer',
               fontFamily: 'Nunito', fontSize: isMobile ? 12 : 14, fontWeight: 700,
@@ -168,11 +302,11 @@ export default function Libro() {
 
         {/* ── Actividades ── */}
         {tab === 'actividades' && (
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: accentBg }}>
+          <div ref={actividadesScrollRef} onScroll={event => saveNavigation({ scrollTop: event.currentTarget.scrollTop })} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: accentBg }}>
             {unidades.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: isMobile ? '12px 12px 0' : '16px 24px 0', background: 'white', borderBottom: `3px solid ${accentLight}`, justifyContent: 'center', flexShrink: 0 }}>
                 {unidades.map((u, idx) => (
-                  <button key={u.id} onClick={() => setSeccionActiva(idx)} style={{
+                  <button key={u.id} onClick={() => cambiarSeccion(idx)} style={{
                     padding: '8px 16px', border: 'none', borderRadius: 50, cursor: 'pointer',
                     fontFamily: 'Nunito', fontWeight: 700, fontSize: isMobile ? 12 : '0.88rem',
                     background: seccionActiva === idx ? accent : accentLight,
@@ -200,7 +334,7 @@ export default function Libro() {
               {actividadesSeccion.length === 0
                 ? <TabEmpty icon="🎬" msg="No hay actividades en esta sección." accent={accent} accentBg={accentBg} />
                 : actividadesSeccion.map((act, idx) => (
-                  <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} respuestaGuardada={respuestas[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, unidadActiva.id, respuesta, esCorrecta)} snapMode={false} primaryColor={accent} />
+                  <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} respuestaGuardada={respuestas[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, unidadActiva.id, respuesta, esCorrecta)} onAttempt={['seleccionMultiple', 'verdaderoFalso', 'identificar', 'selectorEmocionColor', 'lineaTiempoEmocional', 'completarPalabras', 'ordenarPalabras', 'ordenarEventos', 'clasificacionCategorias', 'emparejar', 'sopaLetras', 'crucigrama', 'separarSilabas', 'acrostico'].includes(act.tipo) ? respuesta => verificarIntento(act.id, respuesta) : undefined} snapMode={false} primaryColor={accent} />
                 ))
               }
             </div>

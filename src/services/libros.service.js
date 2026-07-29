@@ -11,7 +11,18 @@ function storageFallbackUrl(path) {
 
 export async function getLibroConUnidades(libroId) {
   const { data, error } = await supabase.rpc('get_libro_completo', { p_libro_id: libroId })
-  if (error || !data) return { libro: null, unidades: [] }
+  if (error) {
+    const accesoDenegado = error.code === '42501' || error.status === 403
+    if (!accesoDenegado) {
+      console.warn('[Libelula] No se pudo cargar el libro:', error.code, error.message)
+    }
+    return {
+      libro: null,
+      unidades: [],
+      error: accesoDenegado ? 'acceso_denegado' : 'error_servidor',
+    }
+  }
+  if (!data) return { libro: null, unidades: [], error: 'no_encontrado' }
 
   const { libro, unidades } = data
 
@@ -29,7 +40,7 @@ export async function getLibroConUnidades(libroId) {
     u.actividades = (u.actividades || []).map(a => ({ ...a, ...a.campos }))
   }
 
-  return { libro, unidades }
+  return { libro, unidades, error: null }
 }
 
 export async function getLibrosDisponibles() {
@@ -48,12 +59,10 @@ export async function getLibrosEscuela(escuelaId = null) {
   return (data || []).map(r => ({ libroId: r.libros.id, libroTitulo: r.libros.titulo, ...r.libros }))
 }
 
-export async function getLibrosActivados(usuarioId) {
-  const { data } = await supabase
-    .from('libro_activaciones')
-    .select('libro_id, libros(id, titulo, descripcion, emoji, portada_url)')
-    .eq('usuario_id', usuarioId)
-  return (data || []).map(r => ({ id: r.libros.id, ...r.libros }))
+export async function getLibrosActivados() {
+  const { data, error } = await supabase.rpc('get_mis_libros_estado')
+  if (error) throw error
+  return (data || [])
 }
 
 export async function getPortadaUrl(portadaPath) {
@@ -68,11 +77,10 @@ export async function getPortadaUrl(portadaPath) {
 }
 
 export async function getActividad(actividadId) {
-  const { data } = await supabase
-    .from('actividades')
-    .select('*')
-    .eq('id', actividadId)
-    .single()
+  const { data, error } = await supabase.rpc('get_actividad_publica', {
+    p_actividad_id: actividadId,
+  })
+  if (error) throw error
   if (!data) return null
   return { ...data, ...data.campos }
 }

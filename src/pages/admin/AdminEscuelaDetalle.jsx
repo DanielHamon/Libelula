@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
 import {
   getEscuelaDetalle, asignarLibroEscuela, removerLibroEscuela,
@@ -9,13 +9,13 @@ import { C, S, btn, btnOutline, badge } from '../../lib/adminStyles'
 
 export default function AdminEscuelaDetalle() {
   const { id } = useParams()
-  const navigate = useNavigate()
   const [escuela, setEscuela] = useState(null)
   const [librosDisponibles, setLibrosDisponibles] = useState([])
   const [libroSel, setLibroSel] = useState('')
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+  const [mensaje, setMensaje] = useState('')
   const [copiado, setCopiado] = useState(false)
 
   useEffect(() => { load() }, [id])
@@ -39,8 +39,8 @@ export default function AdminEscuelaDetalle() {
     setGuardando(true); setError('')
     try {
       await asignarLibroEscuela(id, libroSel)
+      setMensaje('Solicitud enviada para aprobación MFA.')
       setLibroSel('')
-      await load()
     } catch (e) { setError(e.message) }
     finally { setGuardando(false) }
   }
@@ -49,7 +49,7 @@ export default function AdminEscuelaDetalle() {
     setError('')
     try {
       await removerLibroEscuela(id, libroId)
-      await load()
+      setMensaje('Solicitud enviada para aprobación MFA.')
     } catch (e) { setError(e.message) }
   }
 
@@ -57,8 +57,13 @@ export default function AdminEscuelaDetalle() {
 
   async function handleToggle() {
     try {
-      await toggleEscuelaActiva(id, !escuela.activa)
-      setEscuela(prev => ({ ...prev, activa: !prev.activa }))
+      const nuevaActiva = !escuela.activa
+      const resultado = await toggleEscuelaActiva(id, nuevaActiva)
+      if (resultado?.pendiente) {
+        setMensaje('La desactivación quedó pendiente de aprobación MFA.')
+      } else {
+        setEscuela(prev => ({ ...prev, activa: nuevaActiva }))
+      }
       setConfirmToggle(false)
     } catch (e) { setError(e.message) }
   }
@@ -135,6 +140,11 @@ export default function AdminEscuelaDetalle() {
         {error && (
           <div style={{ background: C.dangerLight, color: C.danger, borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 14, fontWeight: 600 }}>
             {error}
+          </div>
+        )}
+        {mensaje && (
+          <div style={{ background: C.successLight, color: C.success, borderRadius: 10, padding: '12px 16px', marginBottom: 20, fontSize: 14, fontWeight: 600 }}>
+            {mensaje}
           </div>
         )}
 

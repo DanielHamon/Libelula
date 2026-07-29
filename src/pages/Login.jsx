@@ -57,10 +57,17 @@ export default function Login() {
         .select('rol')
         .eq('id', data.user.id)
         .single()
+      if (profileError) throw profileError
       const rol = profile?.rol || 'estudiante'
       const defaultPath = rol === 'admin' ? '/admin' : rol === 'docente' ? '/panel-docente' : '/inicio'
       const redirect = searchParams.get('redirect')
       const destino = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : defaultPath
+      const { data: nivel, error: nivelError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      if (nivelError) throw nivelError
+      if (nivel.currentLevel === 'aal1' && nivel.nextLevel === 'aal2') {
+        navigate(`/seguridad/mfa?redirect=${encodeURIComponent(destino)}`, { replace: true })
+        return
+      }
       navigate(destino, { replace: true })
     } catch {
       setError('Error al iniciar sesión. Intenta de nuevo.')

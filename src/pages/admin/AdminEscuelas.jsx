@@ -68,6 +68,7 @@ export default function AdminEscuelas() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [error, setError] = useState('')
+  const [mensaje, setMensaje] = useState('')
 
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedQ(q); setPage(0) }, 300)
@@ -89,8 +90,10 @@ export default function AdminEscuelas() {
 
   async function handleToggle(id, activa) {
     try {
-      await toggleEscuelaActiva(id, !activa)
-      setItems(prev => prev.map(i => i.id === id ? { ...i, activa: !activa } : i))
+      const resultado = await toggleEscuelaActiva(id, !activa)
+      if (resultado?.pendiente) {
+        setMensaje('Solicitud enviada para aprobación del superadministrador.')
+      }
       setConfirmToggle(null)
     } catch (e) { setError(e.message) }
   }
@@ -118,6 +121,7 @@ export default function AdminEscuelas() {
         </div>
 
         {error && <div style={{ background: C.dangerLight, color: C.danger, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
+        {mensaje && <div style={{ background: C.successLight, color: C.success, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{mensaje}</div>}
 
         <div style={{ ...S.card, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -172,7 +176,10 @@ export default function AdminEscuelas() {
       {modal && (
         <Modal
           onClose={() => setModal(false)}
-          onSave={async form => { await createEscuela(form); load() }}
+          onSave={async form => {
+            const resultado = await createEscuela(form)
+            if (resultado?.pendiente) setMensaje('La creación de la escuela quedó pendiente de aprobación.')
+          }}
         />
       )}
 

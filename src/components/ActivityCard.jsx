@@ -92,7 +92,7 @@ function cellFromPoint(x, y) {
 }
 
 // ── Activity card wrapper ─────────────────────────────────────────────────────
-export function ActivityCard({ act, numero, isMobile, completada, respuestaGuardada, onComplete, snapMode = true, primaryColor }) {
+export function ActivityCard({ act, numero, isMobile, completada, respuestaGuardada, onComplete, onAttempt, snapMode = true, primaryColor }) {
   const typeCfg = TIPO_CONFIG[act.tipo] || { icon: '📄', label: act.tipo || 'Actividad', color: C.textMuted, bg: '#F3F4F6' }
   const primary = primaryColor || typeCfg.color
   const primaryLight = primaryColor ? `${primaryColor}18` : typeCfg.bg
@@ -141,15 +141,15 @@ export function ActivityCard({ act, numero, isMobile, completada, respuestaGuard
         )}
       </div>
       <div>
-        <ActivityContent act={act} isMobile={isMobile} completada={completada} respuestaGuardada={respuestaGuardada?.respuesta} onComplete={onComplete} primaryColor={primary} />
+        <ActivityContent act={act} isMobile={isMobile} completada={completada} respuestaGuardada={respuestaGuardada?.respuesta} onComplete={onComplete} onAttempt={onAttempt} primaryColor={primary} />
       </div>
     </div>
   )
 }
 
 // ── Dispatcher ────────────────────────────────────────────────────────────────
-function ActivityContent({ act, isMobile, completada, respuestaGuardada, onComplete, primaryColor }) {
-  const p = { key: act.id, isMobile, completada, savedAnswer: respuestaGuardada, onComplete, primaryColor }
+function ActivityContent({ act, isMobile, completada, respuestaGuardada, onComplete, onAttempt, primaryColor }) {
+  const p = { key: act.id, isMobile, completada, savedAnswer: respuestaGuardada, onComplete, onAttempt, primaryColor }
   const maxIntentos = act.maxIntentos ?? 2
   switch (act.tipo) {
     case 'video':             return <VideoActividad url={act.url} titulo={act.videoTitulo} />
@@ -158,24 +158,24 @@ function ActivityContent({ act, isMobile, completada, respuestaGuardada, onCompl
     case 'colorear':          return <ColorearActividad {...p} imagenUrl={act.imagenUrl} actividadId={act.id} alreadyComplete={completada} />
     case 'termometroEmocional': return <TermometroEmocional {...p} actividadId={act.id} instruccion={act.instruccion} label={act.label} emoji={act.emoji} estados={act.estados ?? []} escalas={act.escalas ?? []} min={act.min} max={act.max} minLabel={act.minLabel} maxLabel={act.maxLabel} />
     case 'clasificacionCategorias': return <ClasificacionCategorias {...p} instruccion={act.instruccion} categorias={act.categorias ?? []} items={act.items ?? act.elementos ?? []} maxIntentos={maxIntentos} />
-    case 'separarSilabas':    return <SepararSilabas {...p} instruccion={act.instruccion} pista={act.pista} palabras={act.palabras ?? []} maxIntentos={maxIntentos} />
-    case 'acrostico':          return <Acrostico {...p} actividadId={act.id} palabra={act.palabra} letras={act.letras} lineas={act.lineas ?? []} instruccion={act.instruccion} pista={act.pista} banco={act.banco ?? []} maxIntentos={maxIntentos} />
-    case 'crucigrama':         return <Crucigrama {...p} actividadId={act.id} instruccion={act.instruccion} pista={act.pista} palabras={act.palabras ?? act.words ?? []} filas={act.filas ?? act.rows} columnas={act.columnas ?? act.cols} pistas={act.pistas ?? act.clues} />
+    case 'separarSilabas':    return <SepararSilabas {...p} actividadId={act.id} instruccion={act.instruccion} pista={act.pista} palabras={act.palabras ?? []} maxIntentos={maxIntentos} />
+    case 'acrostico':          return <Acrostico {...p} actividadId={act.id} palabra={act.palabra} letras={act.letras} lineas={act.lineas ?? []} instruccion={act.instruccion} pista={act.pista} banco={act.banco ?? []} evaluacionServidor={act.evaluacionServidor === true || act.modoEvaluable === true} maxIntentos={maxIntentos} />
+    case 'crucigrama':         return <Crucigrama {...p} key={`${act.id}-${act.filas ?? act.rows ?? ''}-${act.columnas ?? act.cols ?? ''}-${JSON.stringify(act.palabras ?? act.words ?? [])}`} actividadId={act.id} instruccion={act.instruccion} pista={act.pista} palabras={act.palabras ?? act.words ?? []} filas={act.filas ?? act.rows} columnas={act.columnas ?? act.cols} pistas={act.pistas ?? act.clues} maxIntentos={maxIntentos} />
     case 'respiracionGuiada':  return <RespiracionGuiada {...p} actividadId={act.id} instruccion={act.instruccion} mensajeFinal={act.mensajeFinal} ciclos={act.ciclos} duracionInhala={act.duracionInhala} duracionExhala={act.duracionExhala} textoInicio={act.textoInicio} textoInhala={act.textoInhala} textoExhala={act.textoExhala} />
     case 'miniJuegoConteo':    return <MiniJuegoConteo {...p} actividadId={act.id} instruccion={act.instruccion} emoji={act.emoji} cantidad={act.cantidad} tiempoLimite={act.tiempoLimite} textoContador={act.textoContador} mensajeFinal={act.mensajeFinal} mensajeTiempo={act.mensajeTiempo} />
     case 'exploracionInteractiva': return <ExploracionInteractiva {...p} actividadId={act.id} instruccion={act.instruccion} escenaInicial={act.escenaInicial} textoInicial={act.textoInicial} opciones={act.opciones ?? []} mensajeFinal={act.mensajeFinal} preguntaAbierta={act.preguntaAbierta} placeholder={act.placeholder} />
     case 'selectorEmocionColor': return <SelectorEmocionColor {...p} actividadId={act.id} instruccion={act.instruccion} opciones={act.opciones ?? []} retroalimentacion={act.retroalimentacion} retroalimentacionError={act.retroalimentacionError} maxIntentos={maxIntentos} />
     case 'mezclaPinturaGuiada': return <MezclaPinturaGuiada {...p} actividadId={act.id} instruccion={act.instruccion} colores={act.colores ?? []} mezclas={act.mezclas ?? []} numMezclas={act.numMezclas} mensajeFinal={act.mensajeFinal} pregunta={act.pregunta} placeholder={act.placeholder} />
     case 'tarjetasVolteables': return <TarjetasVolteables {...p} instruccion={act.instruccion} tarjetas={act.tarjetas ?? []} textoFrente={act.textoFrente} mensajeFinal={act.mensajeFinal} />
-    case 'sopaLetras':        return <SopaLetras {...p} palabras={act.palabras ?? []} numPalabras={act.numPalabras ?? act.palabras?.length ?? 0} espacio={Math.min(Math.max(act.espacio ?? 8, 5), 12)} alreadyComplete={completada} />
+    case 'sopaLetras':        return <SopaLetras {...p} key={`${act.id}-${act.espacio ?? 8}-${JSON.stringify(act.palabras ?? [])}`} palabras={act.palabras ?? []} espacio={Math.min(Math.max(act.espacio ?? 8, 5), 20)} alreadyComplete={completada} />
     case 'seleccionMultiple': return <SeleccionMultiple {...p} pregunta={act.pregunta} opciones={act.opciones ?? []} pista={act.pista} estilo={act.estilo} retroalimentacion={act.retroalimentacion} retroalimentacionError={act.retroalimentacionError} maxIntentos={maxIntentos} />
-    case 'verdaderoFalso':    return <VerdaderoFalso {...p} afirmaciones={act.afirmaciones ?? []} />
+    case 'verdaderoFalso':    return <VerdaderoFalso {...p} afirmaciones={act.afirmaciones ?? []} maxIntentos={maxIntentos} />
     case 'completarPalabras': return <CompletarPalabras {...p} texto={act.texto ?? ''} respuestas={act.respuestas ?? []} maxIntentos={maxIntentos} />
     case 'ordenarEventos':    return <OrdenarEventos {...p} instruccion={act.instruccion} eventos={act.eventos ?? []} maxIntentos={maxIntentos} />
     case 'ordenarPalabras':   return <OrdenarPalabras {...p} instruccion={act.instruccion} pista={act.pista} fraseCorrecta={act.fraseCorrecta} palabras={act.palabras ?? []} textoArea={act.textoArea} maxIntentos={maxIntentos} />
     case 'escribirCarta':     return <EscribirCarta {...p} actividadId={act.id} destinatario={act.destinatario} promptTexto={act.promptTexto} placeholder={act.placeholder} />
     case 'completarMapa':     return <CompletarMapa {...p} actividadId={act.id} instruccion={act.instruccion} nodos={act.nodos ?? []} />
-    case 'emparejar':         return <Emparejar {...p} pares={act.pares ?? []} instruccion={act.instruccion} encabezadoIzquierda={act.encabezadoIzquierda} encabezadoDerecha={act.encabezadoDerecha} maxIntentos={maxIntentos} />
+    case 'emparejar':         return onAttempt ? <EmparejarServidor {...p} pares={act.pares ?? []} elementosIzquierda={act.elementosIzquierda ?? []} elementosDerecha={act.elementosDerecha ?? []} instruccion={act.instruccion} encabezadoIzquierda={act.encabezadoIzquierda} encabezadoDerecha={act.encabezadoDerecha} maxIntentos={maxIntentos} /> : <Emparejar {...p} pares={act.pares ?? []} instruccion={act.instruccion} encabezadoIzquierda={act.encabezadoIzquierda} encabezadoDerecha={act.encabezadoDerecha} maxIntentos={maxIntentos} />
     case 'dibujoLibre':       return <DibujoLibre {...p} actividadId={act.id} instruccion={act.instruccion} />
     case 'identificar':       return <IdentificarActividad {...p} instruccion={act.instruccion} opciones={act.opciones ?? []} maxIntentos={maxIntentos} />
     case 'reflexionPersonal': return <ReflexionPersonal {...p} actividadId={act.id} instruccion={act.instruccion} opciones={act.opciones ?? []} preguntaAbierta={act.preguntaAbierta} placeholder={act.placeholder} textoBoton={act.textoBoton} />
@@ -296,15 +296,9 @@ function ColorearActividad({ imagenUrl, actividadId, isMobile, onComplete, alrea
     if (saveDrawingTimerRef.current) clearTimeout(saveDrawingTimerRef.current)
     saveDrawingTimerRef.current = setTimeout(() => {
       if (!canvasRef.current) return
-      const src = canvasRef.current
-      const tmp = document.createElement('canvas')
-      tmp.width = src.width; tmp.height = src.height
-      const tCtx = tmp.getContext('2d')
-      tCtx.fillStyle = '#ffffff'
-      tCtx.fillRect(0, 0, tmp.width, tmp.height)
-      tCtx.drawImage(src, 0, 0)
-      const imageData = tmp.toDataURL('image/jpeg', 0.6)
-      onCompleteRef.current({ tipo: 'colorear', imageData }, null)
+      // El dibujo completo permanece local. La base solo necesita una marca
+      // pequeña de finalización; enviar un Data URL permite payloads enormes.
+      onCompleteRef.current({ tipo: 'colorear', completado: true }, null)
     }, 1500)
   }
   function triggerSave() {
@@ -359,21 +353,29 @@ function ColorearActividad({ imagenUrl, actividadId, isMobile, onComplete, alrea
 }
 
 // ── Sopa de Letras ────────────────────────────────────────────────────────────
-function SopaLetras({ isMobile, onComplete, alreadyComplete, palabras, numPalabras, espacio }) {
-  const [grid] = useState(() => generateGrid(palabras, espacio))
-  const [foundWords, setFoundWords] = useState(() => new Set())
-  const [foundCellKeys, setFoundCellKeys] = useState(() => new Set())
+function SopaLetras({ isMobile, onComplete, onAttempt, alreadyComplete, completada, savedAnswer, palabras, espacio }) {
+  const [grid] = useState(() => (
+    Array.isArray(savedAnswer?.tablero)
+    && savedAnswer.tablero.length === espacio
+    && savedAnswer.tablero.every(fila => Array.isArray(fila) && fila.length === espacio)
+      ? savedAnswer.tablero
+      : generateGrid(palabras, espacio)
+  ))
+  const [foundWords, setFoundWords] = useState(() => new Set(savedAnswer?.palabrasEncontradas ?? []))
+  const [foundCellKeys, setFoundCellKeys] = useState(() => new Set(savedAnswer?.celdasEncontradas ?? []))
   const [startCell, setStartCell] = useState(null)
   const [currentCell, setCurrentCell] = useState(null)
   const [isSelecting, setIsSelecting] = useState(false)
   const [wrongPath, setWrongPath] = useState(null)
-  const [gameWon, setGameWon] = useState(alreadyComplete)
+  const [gameWon, setGameWon] = useState(alreadyComplete || completada)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const gridInnerRef = useRef(null)
   const [letterSize, setLetterSize] = useState(20)
   const isSelectingRef = useRef(false), startCellRef = useRef(null), currentCellRef = useRef(null)
   const foundWordsRef = useRef(foundWords), foundCellKeysRef = useRef(foundCellKeys)
-  const onCompleteRef = useRef(onComplete), gameWonRef = useRef(gameWon)
-  const palabrasRef = useRef(palabras), numPalabrasRef = useRef(numPalabras), gridRef = useRef(grid)
+  const onCompleteRef = useRef(onComplete), onAttemptRef = useRef(onAttempt), gameWonRef = useRef(gameWon)
+  const palabrasRef = useRef(palabras), numPalabrasRef = useRef(palabras.length), gridRef = useRef(grid)
   const wrongTimerRef = useRef(null)
 
   useEffect(() => {
@@ -384,10 +386,39 @@ function SopaLetras({ isMobile, onComplete, alreadyComplete, palabras, numPalabr
 
   isSelectingRef.current = isSelecting; startCellRef.current = startCell; currentCellRef.current = currentCell
   foundWordsRef.current = foundWords; foundCellKeysRef.current = foundCellKeys
-  onCompleteRef.current = onComplete; gameWonRef.current = gameWon
-  palabrasRef.current = palabras; numPalabrasRef.current = numPalabras
+  onCompleteRef.current = onComplete; onAttemptRef.current = onAttempt; gameWonRef.current = gameWon
+  palabrasRef.current = palabras; numPalabrasRef.current = palabras.length
 
   const selPath = startCell && currentCell ? linePath(startCell, currentCell) : null
+
+  const finalizar = useCallback(async (palabrasEncontradas, celdasEncontradas) => {
+    if (gameWonRef.current || enviando) return
+    const respuesta = {
+      palabrasEncontradas: [...palabrasEncontradas],
+      celdasEncontradas: [...celdasEncontradas],
+      tablero: gridRef.current,
+    }
+    setEnviando(true)
+    setErrorIntento('')
+    try {
+      if (typeof onAttemptRef.current === 'function') {
+        const evaluacion = await onAttemptRef.current(respuesta)
+        if (!evaluacion.esCorrecta) {
+          setErrorIntento('No pudimos validar todas las palabras. Revisa la selección e inténtalo nuevamente.')
+          return
+        }
+      } else {
+        await onCompleteRef.current(respuesta, true)
+      }
+      gameWonRef.current = true
+      setGameWon(true)
+    } catch (error) {
+      console.error('evaluarIntento sopaLetras:', error)
+      setErrorIntento('No pudimos guardar la sopa de letras. Inténtalo nuevamente.')
+    } finally {
+      setEnviando(false)
+    }
+  }, [enviando])
 
   const commitSelection = useCallback(() => {
     if (!isSelectingRef.current) return
@@ -399,14 +430,16 @@ function SopaLetras({ isMobile, onComplete, alreadyComplete, palabras, numPalabr
       const nw = new Set(foundWordsRef.current); nw.add(matched)
       const nk = new Set(foundCellKeysRef.current); path.forEach(p => nk.add(cellKey(p.r, p.c)))
       setFoundWords(nw); setFoundCellKeys(nk); foundWordsRef.current = nw; foundCellKeysRef.current = nk
-      if (nw.size >= numPalabrasRef.current && !gameWonRef.current) { gameWonRef.current = true; setGameWon(true); onCompleteRef.current({ palabrasEncontradas: [...nw] }, true) }
+      if (nw.size >= numPalabrasRef.current && !gameWonRef.current) {
+        void finalizar(nw, nk)
+      }
     } else if (!matched) {
       setWrongPath(path.map(p => cellKey(p.r, p.c)))
       if (wrongTimerRef.current) clearTimeout(wrongTimerRef.current)
       wrongTimerRef.current = setTimeout(() => setWrongPath(null), 600)
     }
     setStartCell(null); setCurrentCell(null)
-  }, [])
+  }, [finalizar])
 
   useEffect(() => {
     const up = () => commitSelection()
@@ -445,14 +478,24 @@ function SopaLetras({ isMobile, onComplete, alreadyComplete, palabras, numPalabr
         <div style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', flexWrap: 'wrap', gap: 6 }}>
           {palabras.map(w => <span key={w} style={{ padding: '5px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700, background: foundWords.has(w) ? C.greenLight : '#F3F4F6', color: foundWords.has(w) ? C.green : C.textMuted, textDecoration: foundWords.has(w) ? 'line-through' : 'none' }}>{foundWords.has(w) ? '✓ ' : ''}{w}</span>)}
         </div>
-        <div style={{ marginTop: 10, fontSize: 11, color: C.textMuted, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>{foundWords.size} / {numPalabras} encontradas</div>
+        <div style={{ marginTop: 10, fontSize: 11, color: C.textMuted, borderTop: `1px solid ${C.border}`, paddingTop: 8 }}>{foundWords.size} / {palabras.length} encontradas</div>
+        {!gameWon && foundWords.size >= palabras.length && (
+          <button
+            onClick={() => finalizar(foundWords, foundCellKeys)}
+            disabled={enviando}
+            style={{ ...btnP(enviando ? C.border : C.green), width: '100%', marginTop: 10 }}
+          >
+            {enviando ? 'Guardando…' : 'Finalizar ✓'}
+          </button>
+        )}
+        {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 12, fontWeight: 700, marginTop: 8 }}>{errorIntento}</div>}
       </div>
     </div>
   )
 }
 
 // ── Clasificación por categorías ──────────────────────────────────────────────
-function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onComplete, completada, savedAnswer, maxIntentos = 2 }) {
+function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2 }) {
   const normalizedCategories = categorias.map((cat, idx) => ({
     id: String(cat.id ?? cat.key ?? norm(cat.label || cat.nombre || `categoria-${idx + 1}`)),
     label: cat.label || cat.nombre || `Categoría ${idx + 1}`,
@@ -472,13 +515,17 @@ function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onC
   const [verificado, setVerificado] = useState(false)
   const [verificaciones, setVerificaciones] = useState(0)
   const [agotado, setAgotado] = useState(false)
+  const [correctoServidor, setCorrectoServidor] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const [dropTarget, setDropTarget] = useState(null)
   const firedRef = useRef(false)
+  const serverMode = typeof onAttempt === 'function'
 
   const itemById = new Map(normalizedItems.map(item => [item.id, item]))
   const allPlaced = normalizedItems.length > 0 && normalizedItems.every(item => placements[item.id])
   const allOk = allPlaced && normalizedItems.every(item => placements[item.id] === item.categoriaId)
-  const isLocked = completada || agotado || (verificado && allOk)
+  const isLocked = enviando || completada || agotado || correctoServidor || (!serverMode && verificado && allOk)
   const restantes = maxIntentos - verificaciones
 
   function place(itemId, categoryId) {
@@ -517,8 +564,31 @@ function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onC
     }
   }
 
-  function verificar() {
+  async function verificar() {
     if (isLocked || !allPlaced || firedRef.current) return
+    if (serverMode) {
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const evaluacion = await onAttempt({
+          clasificaciones: normalizedItems.map(item => ({
+            id: item.id,
+            texto: item.texto,
+            categoriaElegidaId: placements[item.id] || null,
+          })),
+        })
+        setVerificaciones(evaluacion.intentos)
+        setVerificado(true)
+        if (evaluacion.esCorrecta) setCorrectoServidor(true)
+        else if (evaluacion.agotado) setAgotado(true)
+      } catch (error) {
+        console.error('evaluarIntento clasificacionCategorias:', error)
+        setErrorIntento('No pudimos verificar la clasificación. Inténtalo de nuevo.')
+      } finally {
+        setEnviando(false)
+      }
+      return
+    }
     setVerificado(true)
     if (allOk) {
       firedRef.current = true
@@ -542,6 +612,7 @@ function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onC
   }
 
   function statusFor(item) {
+    if (serverMode) return null
     if (!verificado && !agotado) return null
     const chosen = placements[item.id]
     if (!chosen) return null
@@ -670,15 +741,17 @@ function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onC
         <AttemptsLeft restantes={restantes} max={maxIntentos} locked={isLocked} />
       </div>
 
-      {verificado && allOk && <FeedbackBox ok msg="✅ Clasificaste todos los elementos correctamente." />}
-      {verificado && !allOk && !agotado && <FeedbackBox ok={false} msg="❌ Algunas clasificaciones no corresponden. Revisa las marcadas." />}
+      {(correctoServidor || (!serverMode && verificado && allOk)) && <FeedbackBox ok msg="✅ Clasificaste todos los elementos correctamente." />}
+      {verificado && !correctoServidor && (serverMode || !allOk) && !agotado && <FeedbackBox ok={false} msg={serverMode ? '❌ La clasificación no es correcta. Revísala e inténtalo de nuevo.' : '❌ Algunas clasificaciones no corresponden. Revisa las marcadas.'} />}
       {agotado && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
 
 // ── Separar en sílabas ────────────────────────────────────────────────────────
-function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, completada, savedAnswer, maxIntentos = 2 }) {
+function SepararSilabas({ actividadId, instruccion, pista, palabras, isMobile, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2 }) {
+  const serverMode = typeof onAttempt === 'function'
   const rows = palabras.map((item, idx) => {
     const palabra = item.palabra || item.texto || item.word || ''
     const silabas = item.silabas || item.respuesta || item.correcta || ''
@@ -689,7 +762,7 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
       silabas: String(silabas),
       cantidad: String(cantidad || ''),
     }
-  }).filter(item => item.palabra && item.silabas && item.cantidad)
+  }).filter(item => item.palabra && (serverMode || (item.silabas && item.cantidad)))
 
   const [respuestas, setRespuestas] = useState(() => Object.fromEntries(
     rows.map((row, index) => [row.id, {
@@ -700,17 +773,21 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
   const [verificado, setVerificado] = useState(false)
   const [intentos, setIntentos] = useState(0)
   const [agotado, setAgotado] = useState(false)
+  const [correctoServidor, setCorrectoServidor] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
+  const [detalleServidor, setDetalleServidor] = useState({})
   const [showPista, setShowPista] = useState(false)
   const firedRef = useRef(false)
 
   const resultados = rows.map(row => {
     const dada = respuestas[row.id] || {}
-    const silabasOk = normalizeSilabas(dada.silabas) === normalizeSilabas(row.silabas)
-    const cantidadOk = String(dada.cantidad || '').trim() === row.cantidad
+    const silabasOk = !serverMode && normalizeSilabas(dada.silabas) === normalizeSilabas(row.silabas)
+    const cantidadOk = !serverMode && String(dada.cantidad || '').trim() === row.cantidad
     return { ...row, dadaSilabas: dada.silabas || '', dadaCantidad: dada.cantidad || '', silabasOk, cantidadOk, esCorrecta: silabasOk && cantidadOk }
   })
   const allOk = rows.length > 0 && resultados.every(r => r.esCorrecta)
-  const isLocked = completada || agotado || (verificado && allOk)
+  const isLocked = completada || agotado || correctoServidor || enviando || (!serverMode && verificado && allOk)
   const restantes = maxIntentos - intentos
 
   function update(id, key, value) {
@@ -720,6 +797,16 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
   }
 
   function buildPayload() {
+    if (serverMode) {
+      return {
+        respuestas: resultados.map(r => ({
+          id: r.id,
+          palabra: r.palabra,
+          silabasDadas: r.dadaSilabas,
+          cantidadDada: r.dadaCantidad,
+        })),
+      }
+    }
     return {
       respuestas: resultados.map(r => ({
         palabra: r.palabra,
@@ -734,9 +821,46 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
     }
   }
 
-  function verificar() {
+  async function verificar() {
     if (isLocked || firedRef.current) return
     setVerificado(true)
+    if (serverMode) {
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const payload = buildPayload()
+        const evaluacion = await onAttempt(payload)
+        setIntentos(evaluacion.intentos)
+        if (evaluacion.esCorrecta) setCorrectoServidor(true)
+        else if (evaluacion.agotado) setAgotado(true)
+        const { data: detalle, error: detalleError } = await supabase.rpc(
+          'evaluar_detalle_separar_silabas',
+          { p_actividad_id: actividadId, p_respuesta: payload }
+        )
+        if (detalleError) {
+          console.error('evaluarDetalle separarSilabas:', detalleError)
+          if (evaluacion.esCorrecta) {
+            setDetalleServidor(Object.fromEntries(resultados.map(item => [item.id, {
+              separacionValida: true,
+              cantidadValida: true,
+            }])))
+          }
+        } else {
+          setDetalleServidor(Object.fromEntries(
+            (detalle?.resultados || []).map(item => [String(item.id), {
+              separacionValida: Boolean(item.separacionValida),
+              cantidadValida: Boolean(item.cantidadValida),
+            }])
+          ))
+        }
+      } catch (error) {
+        console.error('evaluarIntento separarSilabas:', error)
+        setErrorIntento('No pudimos verificar las sílabas. Inténtalo nuevamente.')
+      } finally {
+        setEnviando(false)
+      }
+      return
+    }
     if (allOk) {
       firedRef.current = true
       onComplete(buildPayload(), true)
@@ -755,6 +879,7 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
     if (isLocked) return
     setRespuestas({})
     setVerificado(false)
+    setDetalleServidor({})
   }
 
   if (rows.length === 0) return <MissingField campo="palabras" />
@@ -778,18 +903,26 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {resultados.map(row => {
-          const showState = verificado || agotado
-          const silabasLine = showState ? (row.silabasOk ? C.green : C.red) : C.purple
-          const cantidadLine = showState ? (row.cantidadOk ? C.green : C.red) : C.purple
+          const showState = !serverMode && (verificado || agotado)
+          const estadoServidor = serverMode && verificado ? detalleServidor[row.id] : undefined
+          const separacionCorrecta = estadoServidor?.separacionValida
+          const cantidadCorrecta = estadoServidor?.cantidadValida
+          const filaCorrecta = separacionCorrecta === true && cantidadCorrecta === true
+          const filaIncorrecta = separacionCorrecta === false && cantidadCorrecta === false
+          const filaMixta = estadoServidor && !filaCorrecta && !filaIncorrecta
+          const silabasLine = separacionCorrecta === true ? C.green : separacionCorrecta === false ? C.red : showState ? (row.silabasOk ? C.green : C.red) : C.purple
+          const cantidadLine = cantidadCorrecta === true ? C.green : cantidadCorrecta === false ? C.red : showState ? (row.cantidadOk ? C.green : C.red) : C.purple
+          const silabasColor = separacionCorrecta === true ? C.green : separacionCorrecta === false ? C.red : showState ? (row.silabasOk ? C.green : C.red) : C.text
+          const cantidadColor = cantidadCorrecta === true ? C.green : cantidadCorrecta === false ? C.red : showState ? (row.cantidadOk ? C.green : C.red) : C.text
           return (
-            <div key={row.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '90px 150px 80px', columnGap: 10, rowGap: 6, alignItems: 'end', width: 'fit-content', maxWidth: '100%' }}>
-              <span style={{ color: '#6366F1', fontWeight: 900, fontSize: 15, paddingBottom: isMobile ? 0 : 7 }}>{row.palabra}</span>
+            <div key={row.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '90px 150px 80px', columnGap: 10, rowGap: 6, alignItems: 'end', width: 'fit-content', maxWidth: '100%', padding: '8px 10px', borderRadius: 12, border: `2px solid ${filaCorrecta ? C.green : filaIncorrecta ? C.red : filaMixta ? '#F59E0B' : 'transparent'}`, background: filaCorrecta ? C.greenLight : filaIncorrecta ? C.redLight : filaMixta ? '#FFFBEB' : 'transparent', transition: 'background 160ms, border-color 160ms' }}>
+              <span style={{ color: filaCorrecta ? C.green : filaIncorrecta ? C.red : filaMixta ? '#B45309' : '#6366F1', fontWeight: 900, fontSize: 15, paddingBottom: isMobile ? 0 : 7 }}>{filaCorrecta ? '✓ ' : filaIncorrecta ? '✗ ' : filaMixta ? '◐ ' : ''}{row.palabra}</span>
               <input
                 value={row.dadaSilabas}
                 onChange={e => update(row.id, 'silabas', e.target.value)}
                 disabled={isLocked}
-                placeholder={row.silabas}
-                style={{ border: 'none', borderBottom: `2px solid ${silabasLine}`, borderRadius: 0, padding: '5px 8px 6px', fontFamily: 'Nunito', fontWeight: 800, fontSize: 14, textAlign: 'center', color: showState ? (row.silabasOk ? C.green : C.red) : C.text, outline: 'none', background: 'transparent' }}
+                placeholder={serverMode ? 'Ej: pa-la-bra' : row.silabas}
+                style={{ border: 'none', borderBottom: `2px solid ${silabasLine}`, borderRadius: 0, padding: '5px 8px 6px', fontFamily: 'Nunito', fontWeight: 800, fontSize: 14, textAlign: 'center', color: silabasColor, outline: 'none', background: 'transparent' }}
               />
               <input
                 value={row.dadaCantidad}
@@ -797,7 +930,7 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
                 disabled={isLocked}
                 inputMode="numeric"
                 placeholder="# sílabas"
-                style={{ border: 'none', borderBottom: `2px solid ${cantidadLine}`, borderRadius: 0, padding: '5px 8px 6px', fontFamily: 'Nunito', fontWeight: 800, fontSize: 14, textAlign: 'center', color: showState ? (row.cantidadOk ? C.green : C.red) : C.text, outline: 'none', background: 'transparent' }}
+                style={{ border: 'none', borderBottom: `2px solid ${cantidadLine}`, borderRadius: 0, padding: '5px 8px 6px', fontFamily: 'Nunito', fontWeight: 800, fontSize: 14, textAlign: 'center', color: cantidadColor, outline: 'none', background: 'transparent' }}
               />
             </div>
           )
@@ -805,20 +938,21 @@ function SepararSilabas({ instruccion, pista, palabras, isMobile, onComplete, co
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {!isLocked && <button onClick={verificar} style={btnP(C.purple)}>Verificar ✓</button>}
+        {!isLocked && <button onClick={verificar} style={btnP(C.purple)}>{enviando ? 'Verificando…' : 'Verificar ✓'}</button>}
         {!isLocked && Object.keys(respuestas).length > 0 && <button onClick={reiniciar} style={btnS}>↺ Reiniciar</button>}
         <AttemptsLeft restantes={restantes} max={maxIntentos} locked={isLocked} />
       </div>
 
-      {verificado && allOk && <FeedbackBox ok msg="¡Perfecto! Separaste todas las sílabas correctamente." />}
-      {verificado && !allOk && !agotado && <FeedbackBox ok={false} msg="Algunas no son correctas. Recuerda: una palmada = una sílaba." />}
+      {(correctoServidor || (!serverMode && verificado && allOk)) && <FeedbackBox ok msg="¡Perfecto! Separaste todas las sílabas correctamente." />}
+      {verificado && !correctoServidor && (serverMode || !allOk) && !agotado && <FeedbackBox ok={false} msg="La separación no es correcta. Recuerda: una palmada = una sílaba." />}
       {agotado && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
 
 // ── Acróstico ─────────────────────────────────────────────────────────────────
-function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, banco, isMobile, onComplete, completada, savedAnswer, maxIntentos = 2 }) {
+function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, banco, isMobile, onComplete, onAttempt, completada, savedAnswer, evaluacionServidor = false, maxIntentos = 2 }) {
   const baseLetters = (letras?.length ? letras : String(palabra || '').split('')).map((l, idx) => ({
     id: `linea-${idx + 1}`,
     letra: String(l || '').toUpperCase(),
@@ -833,7 +967,8 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
     pista: item.pista || item.ayuda || '',
     respuesta: item.respuesta || item.correcta || '',
   })).filter(row => row.letra)
-  const hasAnswers = rows.some(row => row.respuesta)
+  const serverMode = evaluacionServidor && typeof onAttempt === 'function'
+  const hasAnswers = serverMode || rows.some(row => row.respuesta)
 
   const storageKey = `acrostico_${actividadId}`
   const [respuestas, setRespuestas] = useState(() => {
@@ -849,6 +984,9 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
   const [verificado, setVerificado] = useState(false)
   const [intentos, setIntentos] = useState(0)
   const [agotado, setAgotado] = useState(false)
+  const [correctoServidor, setCorrectoServidor] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const [entregado, setEntregado] = useState(completada)
   const [showPista, setShowPista] = useState(false)
   const firedRef = useRef(false)
@@ -856,12 +994,14 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
   const resultados = rows.map(row => {
     const texto = respuestas[row.id] || ''
     const empiezaBien = norm(texto).startsWith(norm(row.letra))
-    const respuestaOk = !row.respuesta || norm(texto).startsWith(norm(String(row.respuesta).slice(0, 4))) || norm(texto) === norm(row.respuesta)
+    const respuestaOk = evaluacionServidor
+      ? true
+      : !row.respuesta || norm(texto).startsWith(norm(String(row.respuesta).slice(0, 4))) || norm(texto) === norm(row.respuesta)
     return { ...row, texto, empiezaBien, respuestaOk, esCorrecta: empiezaBien && respuestaOk }
   })
   const allFilled = rows.length > 0 && rows.every(row => (respuestas[row.id] || '').trim())
-  const allOk = resultados.every(row => row.esCorrecta)
-  const isLocked = completada || entregado || agotado || (verificado && allOk)
+  const allOk = !serverMode && resultados.every(row => row.esCorrecta)
+  const isLocked = completada || entregado || agotado || correctoServidor || enviando || (!serverMode && verificado && allOk)
   const canRate = !hasAnswers && !completada && !entregado
   const restantes = maxIntentos - intentos
 
@@ -880,6 +1020,16 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
   }
 
   function buildPayload() {
+    if (serverMode) {
+      return {
+        palabra: palabra || rows.map(row => row.letra).join(''),
+        respuestas: resultados.map(row => ({
+          id: row.id,
+          letra: row.letra,
+          texto: row.texto,
+        })),
+      }
+    }
     return {
       palabra: palabra || rows.map(row => row.letra).join(''),
       estrellas: hasAnswers ? null : estrellas,
@@ -893,7 +1043,7 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
     }
   }
 
-  function verificar() {
+  async function verificar() {
     if (isLocked || !allFilled || firedRef.current) return
     if (!hasAnswers) {
       setEntregado(true)
@@ -902,6 +1052,22 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
       return
     }
     setVerificado(true)
+    if (serverMode) {
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const evaluacion = await onAttempt(buildPayload())
+        setIntentos(evaluacion.intentos)
+        if (evaluacion.esCorrecta) setCorrectoServidor(true)
+        else if (evaluacion.agotado) setAgotado(true)
+      } catch (error) {
+        console.error('evaluarIntento acrostico:', error)
+        setErrorIntento('No pudimos verificar el acróstico. Inténtalo nuevamente.')
+      } finally {
+        setEnviando(false)
+      }
+      return
+    }
     if (allOk) {
       firedRef.current = true
       onComplete(buildPayload(), true)
@@ -947,7 +1113,7 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {resultados.map(row => {
-          const showState = hasAnswers && (verificado || agotado)
+          const showState = !serverMode && hasAnswers && (verificado || agotado)
           const border = showState ? (row.esCorrecta ? C.green : C.red) : C.orangeLight
           return (
             <div key={row.id} style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '46px minmax(0, 1fr)', gap: 10, alignItems: 'center' }}>
@@ -1001,35 +1167,38 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
       )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {!isLocked && <button onClick={verificar} disabled={!allFilled} style={btnP(allFilled ? C.orange : C.border)}>{hasAnswers ? 'Verificar ✓' : 'Guardar respuesta'}</button>}
+        {!isLocked && <button onClick={verificar} disabled={!allFilled} style={btnP(allFilled ? C.orange : C.border)}>{enviando ? 'Verificando…' : hasAnswers ? 'Verificar ✓' : 'Guardar respuesta'}</button>}
         {!isLocked && Object.keys(respuestas).length > 0 && <button onClick={reiniciar} style={btnS}>↺ Reiniciar</button>}
         {hasAnswers && <AttemptsLeft restantes={restantes} max={maxIntentos} locked={isLocked} />}
       </div>
 
-      {verificado && hasAnswers && allOk && <FeedbackBox ok msg="¡Acróstico completo! Excelente manejo del vocabulario." />}
-      {verificado && hasAnswers && !allOk && !agotado && <FeedbackBox ok={false} msg="Algunos espacios no son correctos. Revisa las pistas o usa el banco de palabras." />}
+      {(correctoServidor || (!serverMode && verificado && hasAnswers && allOk)) && <FeedbackBox ok msg="¡Acróstico completo! Excelente manejo del vocabulario." />}
+      {verificado && hasAnswers && !correctoServidor && (serverMode || !allOk) && !agotado && <FeedbackBox ok={false} msg="El acróstico no es correcto. Revisa las pistas o usa el banco de palabras." />}
       {agotado && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
       {(entregado || completada) && !hasAnswers && <FeedbackBox ok msg="Acróstico guardado." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
 
 // ── Crucigrama ────────────────────────────────────────────────────────────────
-function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas, pistas, isMobile, onComplete, completada, savedAnswer }) {
+function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas, pistas, isMobile, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2 }) {
   const words = palabras.map((item, idx) => {
     const texto = item.w || item.palabra || item.texto || ''
+    const longitud = Number(item.longitud) || cleanCrosswordAnswer(texto).length
     const direccionRaw = item.d || item.direccion || item.dir || 'h'
     const direccion = String(direccionRaw).toLowerCase().startsWith('v') ? 'v' : 'h'
     return {
       id: String(item.id ?? `palabra-${idx + 1}`),
-      texto: cleanCrosswordAnswer(texto),
+      texto: cleanCrosswordAnswer(texto) || '?'.repeat(longitud),
+      tieneSolucionLocal: Boolean(texto),
       original: texto,
       fila: Number(item.r ?? item.fila ?? item.row ?? 0),
       columna: Number(item.c ?? item.columna ?? item.col ?? 0),
       direccion,
       pista: item.pista || item.clue || '',
     }
-  }).filter(item => item.texto && Number.isFinite(item.fila) && Number.isFinite(item.columna))
+  }).filter(item => item.texto.length > 0 && Number.isFinite(item.fila) && Number.isFinite(item.columna))
 
   const computedRows = words.reduce((max, word) => Math.max(max, word.fila + (word.direccion === 'v' ? word.texto.length : 1)), 0)
   const computedCols = words.reduce((max, word) => Math.max(max, word.columna + (word.direccion === 'h' ? word.texto.length : 1)), 0)
@@ -1048,19 +1217,25 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
   })
   const [showPista, setShowPista] = useState(false)
   const [activeWordId, setActiveWordId] = useState(null)
+  const [resultadoServidor, setResultadoServidor] = useState(null)
+  const [intentos, setIntentos] = useState(0)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
+  const serverMode = typeof onAttempt === 'function'
 
   const { cells, numbers, conflict, cellWords } = buildCrosswordGrid(words, rowCount, colCount)
   const cellKeys = Object.keys(cells)
-  const allOk = cellKeys.length > 0 && cellKeys.every(key => cleanCrosswordAnswer(respuestas[key]) === cells[key])
-  const isLocked = completada || allOk
+  const allFilled = cellKeys.length > 0 && cellKeys.every(key => cleanCrosswordAnswer(respuestas[key]).length === 1)
+  const allOk = !serverMode && allFilled && cellKeys.every(key => cleanCrosswordAnswer(respuestas[key]) === cells[key])
+  const isLocked = completada || allOk || resultadoServidor === 'correcto' || resultadoServidor === 'agotado' || enviando
   const horizontalClues = pistas?.h || pistas?.horizontal || words.filter(w => w.direccion === 'h').map(w => `${numbers[`${w.fila},${w.columna}`]}. ${w.pista || w.original}`)
   const verticalClues = pistas?.v || pistas?.vertical || words.filter(w => w.direccion === 'v').map(w => `${numbers[`${w.fila},${w.columna}`]}. ${w.pista || w.original}`)
   const cellSize = isMobile ? 32 : 38
   const wordStatuses = Object.fromEntries(words.map(word => {
     const keys = crosswordWordKeys(word)
     const completa = keys.every(key => (respuestas[key] || '').trim())
-    const correcta = completa && keys.every((key, i) => cleanCrosswordAnswer(respuestas[key]) === word.texto[i])
+    const correcta = !serverMode && completa && keys.every((key, i) => cleanCrosswordAnswer(respuestas[key]) === word.texto[i])
     return [word.id, { completa, correcta, keys }]
   }))
 
@@ -1074,6 +1249,18 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
   }
 
   function buildPayload() {
+    if (serverMode) {
+      return {
+        palabras: words.map(word => ({
+          id: word.id,
+          respuestaDada: crosswordWordKeys(word).map(key => respuestas[key] || '').join(''),
+        })),
+        respuestas: cellKeys.map(key => ({
+          celda: key,
+          letraDada: respuestas[key] || '',
+        })),
+      }
+    }
     return {
       respuestas: cellKeys.map(key => ({
         celda: key,
@@ -1099,21 +1286,40 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
   }
 
   useEffect(() => {
-    if (allOk && !firedRef.current) {
+    if (!serverMode && allOk && !firedRef.current) {
       firedRef.current = true
       onComplete(buildPayload(), true)
     }
   }, [allOk])
 
+  async function verificar() {
+    if (!serverMode || isLocked || !allFilled) return
+    setEnviando(true)
+    setErrorIntento('')
+    try {
+      const evaluacion = await onAttempt(buildPayload())
+      setIntentos(evaluacion.intentos)
+      if (evaluacion.esCorrecta) setResultadoServidor('correcto')
+      else if (evaluacion.agotado) setResultadoServidor('agotado')
+      else setResultadoServidor('incorrecto')
+    } catch (error) {
+      console.error('evaluarIntento crucigrama:', error)
+      setErrorIntento('No pudimos verificar el crucigrama. Inténtalo nuevamente.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   function reiniciar() {
     if (isLocked) return
     setRespuestas({})
+    setResultadoServidor(null)
     localStorage.removeItem(storageKey)
   }
 
   function cellStatus(key) {
     const statuses = (cellWords[key] || []).map(wordId => wordStatuses[wordId]).filter(st => st?.completa)
-    if (statuses.some(st => !st.correcta)) return 'no'
+    if (!serverMode && statuses.some(st => !st.correcta)) return 'no'
     if (statuses.some(st => st.correcta)) return 'ok'
     return null
   }
@@ -1133,6 +1339,22 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
   function handleCellKeyDown(e, key) {
     if (e.key === 'Tab') {
       if (focusSiblingCell(key, e.shiftKey)) e.preventDefault()
+      return
+    }
+    if (
+      e.key.length === 1
+      && !e.ctrlKey
+      && !e.metaKey
+      && !e.altKey
+      && cleanCrosswordAnswer(e.key)
+    ) {
+      if (isLocked) return
+      e.preventDefault()
+      const letter = cleanCrosswordAnswer(e.key).slice(-1)
+      const next = setCrosswordCellValue(respuestas, key, letter)
+      setRespuestas(next)
+      localStorage.setItem(storageKey, JSON.stringify(next))
+      window.setTimeout(() => focusSiblingCell(key, false), 0)
       return
     }
     if (e.key === 'Backspace' || e.key === 'Delete') {
@@ -1203,10 +1425,15 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {serverMode && !isLocked && <button onClick={verificar} disabled={!allFilled} style={btnP(allFilled ? C.blue : C.border)}>{enviando ? 'Verificando…' : 'Verificar ✓'}</button>}
         {!isLocked && Object.keys(respuestas).length > 0 && <button onClick={reiniciar} style={btnS}>↺ Borrar todo</button>}
+        {serverMode && <AttemptsLeft restantes={maxIntentos - intentos} max={maxIntentos} locked={isLocked} />}
       </div>
 
-      {allOk && <FeedbackBox ok msg="¡Crucigrama completo! Excelente manejo del vocabulario." />}
+      {(allOk || resultadoServidor === 'correcto') && <FeedbackBox ok msg="¡Crucigrama completo! Excelente manejo del vocabulario." />}
+      {resultadoServidor === 'incorrecto' && <FeedbackBox ok={false} msg="Algunas respuestas no son correctas. Revisa las pistas e inténtalo nuevamente." />}
+      {resultadoServidor === 'agotado' && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
@@ -1699,6 +1926,7 @@ function SelectorEmocionColor({
   retroalimentacionError = 'Observa las pistas e inténtalo otra vez.',
   maxIntentos = 2,
   onComplete,
+  onAttempt,
   completada,
 }) {
   const normalized = opciones.map((op, idx) => ({
@@ -1714,10 +1942,13 @@ function SelectorEmocionColor({
   const [seleccionada, setSeleccionada] = useState('')
   const [intentos, setIntentos] = useState(0)
   const [resultado, setResultado] = useState(completada ? 'ok' : null)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
-  const locked = completada || resultado === 'ok' || resultado === 'agotado'
+  const serverMode = typeof onAttempt === 'function'
+  const locked = enviando || completada || resultado === 'ok' || resultado === 'agotado'
 
-  function seleccionar(id) {
+  async function seleccionar(id) {
     if (locked || firedRef.current) return
     const selected = normalized.find(op => op.id === id)
     if (!selected) return
@@ -1726,6 +1957,29 @@ function SelectorEmocionColor({
     const payload = {
       seleccion: selected ? { id: selected.id, emocion: selected.nombre, emoji: selected.emoji, color: selected.color, etiquetaColor: selected.etiquetaColor } : null,
       intento: intentos + 1,
+    }
+    if (serverMode) {
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const evaluacion = await onAttempt(payload)
+        setIntentos(evaluacion.intentos)
+        if (evaluacion.esCorrecta) {
+          firedRef.current = true
+          setResultado('ok')
+        } else if (evaluacion.agotado) {
+          firedRef.current = true
+          setResultado('agotado')
+        } else {
+          setResultado('error')
+        }
+      } catch (error) {
+        console.error('evaluarIntento selectorEmocionColor:', error)
+        setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
+      } finally {
+        setEnviando(false)
+      }
+      return
     }
     if (selected.esCorrecta) {
       firedRef.current = true
@@ -1774,6 +2028,8 @@ function SelectorEmocionColor({
       {resultado === 'ok' && <FeedbackBox ok msg={retroalimentacion} />}
       {resultado === 'error' && <FeedbackBox ok={false} msg={retroalimentacionError} />}
       {resultado === 'agotado' && <FeedbackBox ok={false} msg="Intentos agotados. La respuesta quedó registrada." />}
+      {enviando && <div style={{ color: C.textMuted, fontSize: 13, fontWeight: 700 }}>Verificando respuesta…</div>}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
@@ -1916,7 +2172,7 @@ function ExploracionInteractiva({
 }
 
 // ── Selección múltiple ────────────────────────────────────────────────────────
-function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroalimentacion, retroalimentacionError, onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
+function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroalimentacion, retroalimentacionError, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
   const [seleccionadas, setSeleccionadas] = useState(() => new Set(
     savedAnswer?.seleccionadasIndices
       ?? opciones.map((op, idx) => savedAnswer?.seleccionadas?.includes(op.texto) ? idx : null).filter(idx => idx != null)
@@ -1925,6 +2181,8 @@ function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroa
   const [intentos, setIntentos] = useState(0)
   const [showPista, setShowPista] = useState(false)
   const [resultadosChip, setResultadosChip] = useState({})
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
 
@@ -1943,12 +2201,13 @@ function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroa
     })),
   }
   const allOk = opciones.length > 0 && opciones.every((op, idx) => !!op.esCorrecta === seleccionadas.has(idx))
-  const isLocked = resultado === 'correct' || resultado === 'agotado' || completada
+  const serverMode = typeof onAttempt === 'function'
+  const isLocked = enviando || resultado === 'correct' || resultado === 'agotado' || completada
   const restantes = maxIntentos - intentos
 
   function toggle(idx) {
     if (isLocked) return
-    if (estilo === 'chips') {
+    if (!serverMode && estilo === 'chips') {
       if (resultadosChip[idx] === 'ok') return
       const correcta = !!opciones[idx]?.esCorrecta
       const nextResultados = { ...resultadosChip, [idx]: correcta ? 'ok' : 'no' }
@@ -1994,8 +2253,37 @@ function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroa
     if (resultado) setResultado(null)
   }
 
-  function verificar() {
+  async function verificar() {
     if (isLocked || firedRef.current) return
+    if (serverMode) {
+      if (seleccionadas.size === 0) return
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const respuestaPublica = {
+          seleccionadas: selIdxs.map(idx => opciones[idx]?.texto || ''),
+          opcionElegida: selIdxs.map(idx => opciones[idx]?.texto || '').join(' | '),
+          seleccionadasIndices: selIdxs,
+        }
+        const evaluacion = await onAttempt(respuestaPublica)
+        setIntentos(evaluacion.intentos)
+        if (evaluacion.esCorrecta) {
+          setResultado('correct')
+          firedRef.current = true
+        } else if (evaluacion.agotado) {
+          setResultado('agotado')
+          firedRef.current = true
+        } else {
+          setResultado('wrong')
+        }
+      } catch (error) {
+        console.error('evaluarIntento:', error)
+        setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
+      } finally {
+        setEnviando(false)
+      }
+      return
+    }
     const ok = allOk
     setResultado(ok ? 'correct' : 'wrong')
     if (ok) {
@@ -2014,6 +2302,11 @@ function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroa
 
   function estadoOpcion(idx) {
     const sel = seleccionadas.has(idx)
+    if (serverMode) {
+      if (resultado === 'correct') return sel ? 'ok' : null
+      if (resultado === 'wrong' || resultado === 'agotado') return sel ? 'no' : null
+      return sel ? 'sel' : null
+    }
     const correcta = !!opciones[idx]?.esCorrecta
     if (resultado === 'correct') return correcta ? 'ok' : null
     if (resultado === 'wrong' || resultado === 'agotado') {
@@ -2052,13 +2345,14 @@ function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroa
           const badgeBg = ok ? C.green : bad ? C.red : missed ? '#F59E0B' : sel ? primaryColor : primaryLight
           const badgeColor = ok || bad || missed || sel ? '#fff' : primaryColor
           if (estilo === 'chips') {
-            const chipOk = resultadosChip[idx] === 'ok'
-            const chipWrong = resultadosChip[idx] === 'no'
+            const chipOk = serverMode ? ok : resultadosChip[idx] === 'ok'
+            const chipWrong = serverMode ? bad : resultadosChip[idx] === 'no'
+            const chipSelected = serverMode && sel
             return (
               <button key={idx} onClick={() => toggle(idx)} style={{
                 padding: '8px 16px', borderRadius: 50,
-                border: `2px solid ${chipOk ? C.green : chipWrong ? C.red : `${primaryColor}55`}`,
-                background: chipOk ? C.greenLight : chipWrong ? C.redLight : `${primaryColor}0f`,
+                border: `2px solid ${chipOk ? C.green : chipWrong ? C.red : chipSelected ? primaryColor : `${primaryColor}55`}`,
+                background: chipOk ? C.greenLight : chipWrong ? C.redLight : chipSelected ? `${primaryColor}22` : `${primaryColor}0f`,
                 color: chipOk ? C.green : chipWrong ? C.red : primaryColor,
                 cursor: isLocked ? 'default' : 'pointer', fontFamily: 'Nunito',
                 fontSize: 13, fontWeight: 800, textTransform: 'uppercase',
@@ -2112,51 +2406,97 @@ function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroa
         })}
       </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {estilo !== 'chips' && !isLocked && <button onClick={verificar} style={btnP(primaryColor)}>Verificar ✓</button>}
-        {estilo !== 'chips' && resultado === 'wrong' && !isLocked && <button onClick={() => setResultado(null)} style={btnS}>↺ Revisar</button>}
+        {(serverMode || estilo !== 'chips') && !isLocked && <button onClick={verificar} disabled={seleccionadas.size === 0 || enviando} style={btnP(seleccionadas.size > 0 && !enviando ? primaryColor : C.border)}>{enviando ? 'Verificando…' : 'Verificar ✓'}</button>}
+        {(serverMode || estilo !== 'chips') && resultado === 'wrong' && !isLocked && <button onClick={() => setResultado(null)} style={btnS}>↺ Revisar</button>}
         <AttemptsLeft restantes={restantes} max={maxIntentos} locked={isLocked} />
       </div>
       {resultado === 'correct' && <FeedbackBox ok msg={retroalimentacion || '✅ Seleccionaste todas las respuestas correctas.'} />}
       {resultado === 'wrong' && <FeedbackBox ok={false} msg={retroalimentacionError || '❌ Revisa todas las opciones correctas antes de volver a verificar.'} />}
       {resultado === 'agotado' && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
 
 // ── Verdadero / Falso ─────────────────────────────────────────────────────────
-function VerdaderoFalso({ afirmaciones, onComplete, completada, savedAnswer }) {
+function VerdaderoFalso({ afirmaciones, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2 }) {
   const [respuestas, setRespuestas] = useState(() => Object.fromEntries(
     (savedAnswer?.respuestas || []).map((item, index) => [index, item.respondio])
   ))
+  const [resultado, setResultado] = useState(null)
+  const [intentos, setIntentos] = useState(0)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const serverMode = typeof onAttempt === 'function'
+  const locked = completada || enviando || resultado === 'correct' || resultado === 'agotado'
+
   function responder(idx, valor) {
-    if (respuestas[idx] !== undefined) return
+    if (locked || (!serverMode && respuestas[idx] !== undefined)) return
     setRespuestas(prev => {
       const n = { ...prev, [idx]: valor }
-      if (Object.keys(n).length === afirmaciones.length && !completada) {
+      if (!serverMode && Object.keys(n).length === afirmaciones.length && !completada) {
         const data = afirmaciones.map((af, i) => ({ texto: af.texto, respondio: n[i], esVerdadero: af.esVerdadero, esCorrecta: n[i] === af.esVerdadero }))
         onCompleteRef.current({ respuestas: data }, data.every(d => d.esCorrecta))
       }
       return n
     })
+    if (serverMode && resultado === 'wrong') setResultado(null)
   }
+
+  async function verificar() {
+    if (!serverMode || locked || Object.keys(respuestas).length !== afirmaciones.length) return
+    setEnviando(true)
+    setErrorIntento('')
+    try {
+      const payload = {
+        respuestas: afirmaciones.map((af, index) => ({
+          texto: af.texto,
+          respondio: respuestas[index],
+        })),
+      }
+      const evaluacion = await onAttempt(payload)
+      setIntentos(evaluacion.intentos)
+      if (evaluacion.esCorrecta) setResultado('correct')
+      else if (evaluacion.agotado) setResultado('agotado')
+      else setResultado('wrong')
+    } catch (error) {
+      console.error('evaluarIntento verdaderoFalso:', error)
+      setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {afirmaciones.map((af, idx) => {
-        const resp = respuestas[idx], correcto = resp !== undefined ? resp === af.esVerdadero : null
+        const resp = respuestas[idx]
+        const correcto = !serverMode && resp !== undefined ? resp === af.esVerdadero : null
         return (
           <div key={idx} style={{ background: correcto === true ? C.greenLight : correcto === false ? C.redLight : '#fff', border: `2px solid ${correcto === true ? C.green : correcto === false ? C.red : '#fce4f3'}`, borderRadius: 14, padding: '18px 20px', boxShadow: '0 2px 6px rgba(233,30,140,0.06)' }}>
             <p style={{ fontSize: 17, fontWeight: 600, color: C.text, margin: '0 0 14px', lineHeight: 1.4 }}>{af.texto}</p>
             <div style={{ display: 'flex', gap: 10 }}>
               {[{ val: true, label: 'Verdadero', ac: C.green, ab: C.greenLight }, { val: false, label: 'Falso', ac: C.red, ab: C.redLight }].map(btn => {
                 const s = resp === btn.val
-                return <button key={String(btn.val)} onClick={() => responder(idx, btn.val)} disabled={resp !== undefined} style={{ padding: '10px 26px', borderRadius: 50, border: `2px solid ${s ? btn.ac : '#fce4f3'}`, background: s ? btn.ab : '#fff', color: s ? btn.ac : C.textMuted, fontFamily: 'Nunito', fontWeight: 800, fontSize: 16, cursor: resp !== undefined ? 'default' : 'pointer' }}>{btn.label}</button>
+                const disabled = locked || (!serverMode && resp !== undefined)
+                return <button key={String(btn.val)} onClick={() => responder(idx, btn.val)} disabled={disabled} style={{ padding: '10px 26px', borderRadius: 50, border: `2px solid ${s ? btn.ac : '#fce4f3'}`, background: s ? btn.ab : '#fff', color: s ? btn.ac : C.textMuted, fontFamily: 'Nunito', fontWeight: 800, fontSize: 16, cursor: disabled ? 'default' : 'pointer' }}>{btn.label}</button>
               })}
             </div>
-            {resp !== undefined && <p style={{ margin: '10px 0 0', fontSize: 14, fontWeight: 700, color: correcto ? C.green : C.red }}>{correcto ? '✅ ¡Correcto!' : `❌ La respuesta era: ${af.esVerdadero ? 'Verdadero' : 'Falso'}`}</p>}
+            {!serverMode && resp !== undefined && <p style={{ margin: '10px 0 0', fontSize: 14, fontWeight: 700, color: correcto ? C.green : C.red }}>{correcto ? '✅ ¡Correcto!' : `❌ La respuesta era: ${af.esVerdadero ? 'Verdadero' : 'Falso'}`}</p>}
           </div>
         )
       })}
+      {serverMode && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {!locked && <button onClick={verificar} disabled={Object.keys(respuestas).length !== afirmaciones.length || enviando} style={btnP(Object.keys(respuestas).length === afirmaciones.length && !enviando ? C.pink : C.border)}>{enviando ? 'Verificando…' : 'Verificar ✓'}</button>}
+          <AttemptsLeft restantes={maxIntentos - intentos} max={maxIntentos} locked={locked} />
+        </div>
+      )}
+      {resultado === 'correct' && <FeedbackBox ok msg="✅ Todas las respuestas son correctas." />}
+      {resultado === 'wrong' && <FeedbackBox ok={false} msg="Hay respuestas incorrectas. Revísalas e inténtalo de nuevo." />}
+      {resultado === 'agotado' && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
@@ -2167,7 +2507,7 @@ function extractCompletionAnswers(texto) {
   return matches.map(match => (match[1] ?? match[2] ?? '').trim()).filter(Boolean)
 }
 
-function CompletarPalabras({ texto, respuestas, onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
+function CompletarPalabras({ texto, respuestas, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
   const detectedAnswers = extractCompletionAnswers(texto)
   const correctas = detectedAnswers.length > 0 ? detectedAnswers : respuestas
   const partes = String(texto || '').split(/(\[[^\]\n]+\]|\{\{[^}\n]+\}\})/g)
@@ -2176,11 +2516,35 @@ function CompletarPalabras({ texto, respuestas, onComplete, completada, savedAns
   const [resultados, setResultados] = useState([])
   const [verificaciones, setVerificaciones] = useState(0)
   const [agotado, setAgotado] = useState(false)
+  const [correctoServidor, setCorrectoServidor] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const [dropTarget, setDropTarget] = useState(null)
   const firedRef = useRef(false)
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const serverMode = typeof onAttempt === 'function'
 
-  function verificar() {
+  async function verificar() {
+    if (serverMode) {
+      if (enviando || agotado || correctoServidor || valores.some(value => !String(value || '').trim())) return
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const evaluacion = await onAttempt({
+          respuestas: valores.map(dada => ({ dada })),
+        })
+        setVerificaciones(evaluacion.intentos)
+        setVerificado(true)
+        if (evaluacion.esCorrecta) setCorrectoServidor(true)
+        else if (evaluacion.agotado) setAgotado(true)
+      } catch (error) {
+        console.error('evaluarIntento completarPalabras:', error)
+        setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
+      } finally {
+        setEnviando(false)
+      }
+      return
+    }
     const r = correctas.map((v, i) => String(valores[i] || '').trim() === String(v || '').trim())
     setResultados(r); setVerificado(true)
     if (r.every(Boolean)) {
@@ -2194,15 +2558,15 @@ function CompletarPalabras({ texto, respuestas, onComplete, completada, savedAns
     }
   }
   function reiniciar() {
-    if (agotado || completada) return
+    if (agotado || correctoServidor || completada) return
     setValores(Array(correctas.length).fill('')); setVerificado(false); setResultados([])
   }
-  const allOk = verificado && resultados.every(Boolean)
-  const isLocked = allOk || agotado || completada
+  const allOk = serverMode ? correctoServidor : verificado && resultados.every(Boolean)
+  const isLocked = enviando || allOk || agotado || completada
   const restantes = maxIntentos - verificaciones
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {correctas.length > 0 && (
+      {!serverMode && correctas.length > 0 && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {correctas.map((respuesta, index) => (
             <span
@@ -2229,7 +2593,7 @@ function CompletarPalabras({ texto, respuestas, onComplete, completada, savedAns
             key={i}
             value={valores[answerIndex] || ''}
             placeholder="…"
-            onChange={e => { const v = [...valores]; v[answerIndex] = e.target.value; setValores(v) }}
+            onChange={e => { const v = [...valores]; v[answerIndex] = e.target.value; setValores(v); if (serverMode) setVerificado(false) }}
             onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDropTarget(answerIndex) }}
             onDragLeave={() => setDropTarget(current => current === answerIndex ? null : current)}
             onDrop={e => {
@@ -2247,11 +2611,11 @@ function CompletarPalabras({ texto, respuestas, onComplete, completada, savedAns
             disabled={isLocked}
             style={{
               border: 'none',
-              borderBottom: `2.5px solid ${!verificado ? primaryColor : resultados[answerIndex] ? C.green : C.red}`,
+              borderBottom: `2.5px solid ${!verificado || serverMode ? primaryColor : resultados[answerIndex] ? C.green : C.red}`,
               padding: '0 6px', margin: '0 4px', height: 24, lineHeight: '22px',
               verticalAlign: 'baseline', transform: 'translateY(-2px)',
               fontFamily: 'Nunito', fontSize: '0.95em', fontWeight: 700,
-              color: !verificado ? primaryColor : resultados[answerIndex] ? C.green : C.red,
+              color: !verificado || serverMode ? primaryColor : resultados[answerIndex] ? C.green : C.red,
               background: dropTarget === answerIndex ? `${primaryColor}18` : 'transparent',
               width: Math.max(72, Math.min(150, (correctas[answerIndex]?.length || 6) * 12)),
               outline: 'none', textAlign: 'center', borderRadius: '5px 5px 0 0',
@@ -2260,13 +2624,14 @@ function CompletarPalabras({ texto, respuestas, onComplete, completada, savedAns
         })}
       </p>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {!isLocked && <button onClick={verificar} style={btnP(primaryColor)}>Verificar ✓</button>}
+        {!isLocked && <button onClick={verificar} disabled={valores.some(value => !String(value || '').trim()) || enviando} style={btnP(!valores.some(value => !String(value || '').trim()) && !enviando ? primaryColor : C.border)}>{enviando ? 'Verificando…' : 'Verificar ✓'}</button>}
         {verificado && !isLocked && <button onClick={reiniciar} style={btnS}>↺ Reiniciar</button>}
         <AttemptsLeft restantes={restantes} max={maxIntentos} locked={isLocked} />
       </div>
       {allOk && <FeedbackBox ok msg="✅ ¡Perfecto! Todas las respuestas son correctas." />}
-      {verificado && !allOk && !agotado && <FeedbackBox ok={false} msg="❌ Algunas respuestas no son correctas. ¡Inténtalo de nuevo!" />}
+      {verificado && !allOk && !agotado && <FeedbackBox ok={false} msg={serverMode ? '❌ La respuesta no es correcta. Revisa los espacios e inténtalo de nuevo.' : '❌ Algunas respuestas no son correctas. ¡Inténtalo de nuevo!'} />}
       {agotado && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
@@ -2295,7 +2660,7 @@ function mezclarIndices(total) {
   return indices.map((_, index) => (index + offset) % total)
 }
 
-function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoArea = 'Tu oración:', onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.teal }) {
+function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoArea = 'Tu oración:', onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2, primaryColor = C.teal }) {
   const correctas = palabras.length > 0 ? palabras : String(fraseCorrecta || '').trim().split(/\s+/).filter(Boolean)
   const wordsKey = JSON.stringify(correctas)
   const [ordenBanco, setOrdenBanco] = useState(() => mezclarIndices(correctas.length))
@@ -2311,8 +2676,11 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
   const [showPista, setShowPista] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [intentos, setIntentos] = useState(0)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const serverMode = typeof onAttempt === 'function'
 
   useEffect(() => {
     const next = JSON.parse(wordsKey)
@@ -2322,7 +2690,7 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
     setIntentos(0)
   }, [wordsKey])
 
-  const isLocked = resultado === 'correcto' || resultado === 'agotado' || completada
+  const isLocked = enviando || resultado === 'correcto' || resultado === 'agotado' || completada
   const disponibles = ordenBanco.filter(index => !seleccionadas.includes(index))
   const restantes = maxIntentos - intentos
 
@@ -2338,8 +2706,26 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
     setResultado(null)
   }
 
-  function verificar() {
+  async function verificar() {
     if (seleccionadas.length !== correctas.length || isLocked) return
+    if (serverMode) {
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const frase = seleccionadas.map(index => correctas[index]).join(' ')
+        const evaluacion = await onAttempt({ frase })
+        setIntentos(evaluacion.intentos)
+        if (evaluacion.esCorrecta) setResultado('correcto')
+        else if (evaluacion.agotado) setResultado('agotado')
+        else setResultado('incorrecto')
+      } catch (error) {
+        console.error('evaluarIntento ordenarPalabras:', error)
+        setErrorIntento('No pudimos verificar el orden. Inténtalo de nuevo.')
+      } finally {
+        setEnviando(false)
+      }
+      return
+    }
     const ok = seleccionadas.every((wordIndex, position) => wordIndex === position)
     if (ok) {
       setResultado('correcto')
@@ -2402,12 +2788,13 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
       {resultado === 'correcto' && <FeedbackBox ok msg="¡Muy bien! Ordenaste correctamente la oración." />}
       {resultado === 'incorrecto' && <FeedbackBox ok={false} msg="El orden no es correcto. Inténtalo de nuevo." />}
       {resultado === 'agotado' && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
 
 // ── Ordenar eventos ───────────────────────────────────────────────────────────
-function OrdenarEventos({ instruccion, eventos, onComplete, completada, savedAnswer, maxIntentos = 2 }) {
+function OrdenarEventos({ instruccion, eventos, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2 }) {
   const eventsKey = JSON.stringify(eventos)
   const [items, setItems] = useState(() => savedAnswer?.orden?.length
     ? savedAnswer.orden.map(texto => eventos.find(item => item.texto === texto)).filter(Boolean)
@@ -2416,10 +2803,13 @@ function OrdenarEventos({ instruccion, eventos, onComplete, completada, savedAns
   const [correcto, setCorrecto] = useState(false)
   const [verificaciones, setVerificaciones] = useState(0)
   const [agotado, setAgotado] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const [draggingIndex, setDraggingIndex] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const firedRef = useRef(false)
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const serverMode = typeof onAttempt === 'function'
 
   useEffect(() => {
     const nextEvents = JSON.parse(eventsKey)
@@ -2454,7 +2844,27 @@ function OrdenarEventos({ instruccion, eventos, onComplete, completada, savedAns
     setDraggingIndex(null)
     setDragOverIndex(null)
   }
-  function verificar() {
+  async function verificar() {
+    if (serverMode) {
+      if (enviando || correcto || agotado || completada) return
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const evaluacion = await onAttempt({
+          orden: items.map(item => item.texto),
+        })
+        setVerificaciones(evaluacion.intentos)
+        setVerificado(true)
+        setCorrecto(!!evaluacion.esCorrecta)
+        if (evaluacion.agotado) setAgotado(true)
+      } catch (error) {
+        console.error('evaluarIntento ordenarEventos:', error)
+        setErrorIntento('No pudimos verificar el orden. Inténtalo de nuevo.')
+      } finally {
+        setEnviando(false)
+      }
+      return
+    }
     const ok = items.every((it, i) => (it.orden ?? Number(it.id)) === i + 1)
     setVerificado(true); setCorrecto(ok)
     if (ok) {
@@ -2471,7 +2881,7 @@ function OrdenarEventos({ instruccion, eventos, onComplete, completada, savedAns
     if (agotado || completada) return
     setItems([...eventos].sort(() => Math.random() - 0.5)); setVerificado(false); setCorrecto(false)
   }
-  const isLocked = correcto || agotado || completada
+  const isLocked = enviando || correcto || agotado || completada
   const restantes = maxIntentos - verificaciones
 
   return (
@@ -2525,6 +2935,7 @@ function OrdenarEventos({ instruccion, eventos, onComplete, completada, savedAns
       {correcto && <FeedbackBox ok msg="✅ ¡Orden correcto! Muy bien." />}
       {verificado && !correcto && !agotado && <FeedbackBox ok={false} msg="❌ El orden no es correcto. ¡Vuelve a intentarlo!" />}
       {agotado && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
@@ -2594,6 +3005,214 @@ function desordenarSinCoincidencias(pares) {
   // Rotar siempre evita coincidencias y sirve como respaldo determinista.
   const offset = 1 + Math.floor(Math.random() * (pares.length - 1))
   return pares.map((_, index) => pares[(index + offset) % pares.length])
+}
+
+function EmparejarServidor({
+  pares, elementosIzquierda = [], elementosDerecha = [], instruccion, encabezadoIzquierda = 'Elemento',
+  encabezadoDerecha = '¿Qué hace?', onAttempt, completada, savedAnswer, isMobile,
+  maxIntentos = 2, primaryColor = C.blue,
+}) {
+  const izquierdas = pares.length > 0
+    ? pares.map(item => item.izquierda)
+    : elementosIzquierda
+  const [derechas] = useState(() => elementosDerecha.length > 0
+    ? [...elementosDerecha]
+    : desordenarSinCoincidencias(pares).map(item => item.derecha)
+  )
+  const [seleccionIzquierda, setSeleccionIzquierda] = useState(null)
+  const [asignaciones, setAsignaciones] = useState(() => {
+    if (!completada || !Array.isArray(savedAnswer?.parejas)) return {}
+    return Object.fromEntries(
+      izquierdas.flatMap((textoIzquierda, izquierda) => {
+        const parejaGuardada = savedAnswer.parejas.find(item => item.izquierda === textoIzquierda)
+        const derecha = parejaGuardada
+          ? derechas.findIndex(texto => texto === parejaGuardada.derecha)
+          : -1
+        return derecha >= 0 ? [[izquierda, derecha]] : []
+      })
+    )
+  })
+  const [resultado, setResultado] = useState(null)
+  const [intentos, setIntentos] = useState(0)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
+  const [lineas, setLineas] = useState([])
+  const [lineaActiva, setLineaActiva] = useState(null)
+  const conexionesRef = useRef(null)
+  const izquierdasRef = useRef([])
+  const derechasRef = useRef([])
+  const locked = enviando || completada || resultado === 'correcto' || resultado === 'agotado'
+  const usadas = new Set(Object.values(asignaciones))
+  const todasAsignadas = izquierdas.length > 0 && Object.keys(asignaciones).length === izquierdas.length
+
+  useEffect(() => {
+    const contenedor = conexionesRef.current
+    if (!contenedor) return undefined
+
+    const recalcularLineas = () => {
+      const base = contenedor.getBoundingClientRect()
+      const siguientes = Object.entries(asignaciones).flatMap(([izquierda, derecha]) => {
+        const origen = izquierdasRef.current[Number(izquierda)]
+        const destino = derechasRef.current[Number(derecha)]
+        if (!origen || !destino) return []
+        const origenRect = origen.getBoundingClientRect()
+        const destinoRect = destino.getBoundingClientRect()
+        return [{
+          izquierda: Number(izquierda),
+          x1: origenRect.right - base.left,
+          y1: origenRect.top + origenRect.height / 2 - base.top,
+          x2: destinoRect.left - base.left,
+          y2: destinoRect.top + destinoRect.height / 2 - base.top,
+        }]
+      })
+      setLineas(siguientes)
+    }
+
+    const frame = requestAnimationFrame(recalcularLineas)
+    const observer = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(recalcularLineas)
+      : null
+    observer?.observe(contenedor)
+    window.addEventListener('resize', recalcularLineas)
+    return () => {
+      cancelAnimationFrame(frame)
+      observer?.disconnect()
+      window.removeEventListener('resize', recalcularLineas)
+    }
+  }, [asignaciones, isMobile])
+
+  function quitarRelacion(index) {
+    if (locked) return
+    setAsignaciones(prev => {
+      const next = { ...prev }
+      delete next[index]
+      return next
+    })
+    setSeleccionIzquierda(null)
+    setLineaActiva(null)
+    setResultado(null)
+  }
+
+  function elegirIzquierda(index) {
+    if (locked) return
+    if (asignaciones[index] !== undefined) {
+      quitarRelacion(index)
+    }
+    setSeleccionIzquierda(index)
+    setResultado(null)
+  }
+
+  function elegirDerecha(index) {
+    if (locked || seleccionIzquierda === null || usadas.has(index)) return
+    setAsignaciones(prev => ({ ...prev, [seleccionIzquierda]: index }))
+    setSeleccionIzquierda(null)
+    setResultado(null)
+  }
+
+  async function verificar() {
+    if (locked || !todasAsignadas) return
+    setEnviando(true)
+    setErrorIntento('')
+    try {
+      const evaluacion = await onAttempt({
+        parejas: izquierdas.map((textoIzquierda, index) => ({
+          izquierda: textoIzquierda,
+          derecha: derechas[asignaciones[index]],
+        })),
+      })
+      setIntentos(evaluacion.intentos)
+      if (evaluacion.esCorrecta) setResultado('correcto')
+      else if (evaluacion.agotado) setResultado('agotado')
+      else setResultado('incorrecto')
+    } catch (error) {
+      console.error('evaluarIntento emparejar:', error)
+      setErrorIntento('No pudimos verificar las parejas. Inténtalo de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  if (izquierdas.length < 2 || derechas.length !== izquierdas.length) {
+    return <MissingField campo="elementos de emparejamiento" />
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {instruccion && <p style={{ fontSize: 15, fontWeight: 700, color: C.text, margin: 0 }}>{instruccion}</p>}
+      <div ref={conexionesRef} style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: isMobile ? 28 : 48 }}>
+        <svg
+          aria-hidden="true"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible', pointerEvents: 'none', zIndex: 2 }}
+        >
+          {lineas.map(({ izquierda, x1, y1, x2, y2 }) => {
+            const activa = lineaActiva === izquierda
+            const curva = Math.max(18, (x2 - x1) * 0.42)
+            const path = `M ${x1} ${y1} C ${x1 + curva} ${y1}, ${x2 - curva} ${y2}, ${x2} ${y2}`
+            const centroX = (x1 + x2) / 2
+            const centroY = (y1 + y2) / 2
+            return (
+              <g key={izquierda}>
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="transparent"
+                  strokeWidth="20"
+                  onMouseEnter={() => !locked && setLineaActiva(izquierda)}
+                  onMouseLeave={() => setLineaActiva(null)}
+                  onClick={() => quitarRelacion(izquierda)}
+                  style={{ pointerEvents: locked ? 'none' : 'stroke', cursor: locked ? 'default' : 'pointer' }}
+                />
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={activa ? C.red : primaryColor}
+                  strokeWidth={activa ? 4 : 3}
+                  strokeLinecap="round"
+                  style={{ pointerEvents: 'none', transition: 'stroke 150ms, stroke-width 150ms' }}
+                />
+                {activa && (
+                  <g
+                    role="button"
+                    aria-label="Anular esta relación"
+                    onMouseEnter={() => setLineaActiva(izquierda)}
+                    onMouseLeave={() => setLineaActiva(null)}
+                    onClick={() => quitarRelacion(izquierda)}
+                    style={{ pointerEvents: 'all', cursor: 'pointer' }}
+                  >
+                    <circle cx={centroX} cy={centroY} r="11" fill={C.red} stroke="#fff" strokeWidth="2" />
+                    <text x={centroX} y={centroY + 4} textAnchor="middle" fill="#fff" fontSize="15" fontWeight="900">×</text>
+                  </g>
+                )}
+              </g>
+            )
+          })}
+        </svg>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative', zIndex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, textAlign: 'center', margin: '0 0 4px' }}>{encabezadoIzquierda}</p>
+          {izquierdas.map((texto, index) => {
+            const selected = seleccionIzquierda === index
+            const assigned = asignaciones[index] !== undefined
+            return <button ref={elemento => { izquierdasRef.current[index] = elemento }} key={`${texto}-${index}`} onClick={() => elegirIzquierda(index)} disabled={locked} style={{ padding: isMobile ? '10px 8px' : '12px 14px', borderRadius: 12, border: `2px solid ${selected ? primaryColor : assigned ? C.green : `${primaryColor}44`}`, background: selected ? `${primaryColor}18` : assigned ? C.greenLight : '#fff', color: assigned ? C.green : C.text, fontFamily: 'Nunito', fontWeight: 700, cursor: locked ? 'default' : 'pointer' }}>{assigned ? '✓ ' : ''}{texto}</button>
+          })}
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, position: 'relative', zIndex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 800, color: C.textMuted, textAlign: 'center', margin: '0 0 4px' }}>{encabezadoDerecha}</p>
+          {derechas.map((texto, index) => {
+            const used = usadas.has(index)
+            return <button ref={elemento => { derechasRef.current[index] = elemento }} key={`${texto}-${index}`} onClick={() => elegirDerecha(index)} disabled={locked || used || seleccionIzquierda === null} style={{ padding: isMobile ? '10px 8px' : '12px 14px', borderRadius: 12, border: `2px solid ${used ? C.green : `${primaryColor}44`}`, background: used ? C.greenLight : '#fff', color: used ? C.green : C.text, fontFamily: 'Nunito', fontWeight: 700, cursor: locked || used || seleccionIzquierda === null ? 'default' : 'pointer' }}>{used ? '✓ ' : ''}{texto}</button>
+          })}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {!locked && <button onClick={verificar} disabled={!todasAsignadas} style={btnP(todasAsignadas ? primaryColor : C.border)}>{enviando ? 'Verificando…' : 'Verificar parejas ✓'}</button>}
+        <AttemptsLeft restantes={maxIntentos - intentos} max={maxIntentos} locked={locked} />
+      </div>
+      {resultado === 'correcto' && <FeedbackBox ok msg="✅ Todas las parejas son correctas." />}
+      {resultado === 'incorrecto' && <FeedbackBox ok={false} msg="Las parejas no son correctas. Puedes reasignarlas e intentarlo de nuevo." />}
+      {resultado === 'agotado' && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
+    </div>
+  )
 }
 
 function Emparejar({ pares, instruccion, encabezadoIzquierda = 'Elemento', encabezadoDerecha = '¿Qué hace?', onComplete, completada, savedAnswer, isMobile, maxIntentos = 2, primaryColor = C.blue }) {
@@ -2731,21 +3350,46 @@ function DibujoLibre({ actividadId, instruccion, isMobile, onComplete, completad
 }
 
 // ── Identificar ───────────────────────────────────────────────────────────────
-function IdentificarActividad({ instruccion, opciones, onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
+function IdentificarActividad({ instruccion, opciones, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
   const [sel, setSel] = useState(() => new Set(
     opciones.map((op, index) => savedAnswer?.seleccionadas?.includes(op.texto) ? index : null).filter(index => index != null)
   ))
   const [verificado, setVerificado] = useState(false)
   const [verificaciones, setVerificaciones] = useState(0)
   const [agotado, setAgotado] = useState(false)
+  const [correctoServidor, setCorrectoServidor] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const serverMode = typeof onAttempt === 'function'
 
   function toggle(idx) {
-    if (verificado || agotado || completada) return
+    if ((!serverMode && verificado) || enviando || agotado || correctoServidor || completada) return
     setSel(prev => { const n = new Set(prev); n.has(idx) ? n.delete(idx) : n.add(idx); return n })
+    if (serverMode) setVerificado(false)
   }
-  function verificar() {
+  async function verificar() {
+    if (serverMode) {
+      if (sel.size === 0 || enviando || agotado || correctoServidor || completada) return
+      setEnviando(true)
+      setErrorIntento('')
+      try {
+        const evaluacion = await onAttempt({
+          seleccionadas: [...sel].map(index => opciones[index]?.texto || ''),
+        })
+        setVerificaciones(evaluacion.intentos)
+        setVerificado(true)
+        if (evaluacion.esCorrecta) setCorrectoServidor(true)
+        else if (evaluacion.agotado) setAgotado(true)
+      } catch (error) {
+        console.error('evaluarIntento identificar:', error)
+        setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
+      } finally {
+        setEnviando(false)
+      }
+      return
+    }
     setVerificado(true)
     const todoBien = opciones.every((op, i) => op.esCorrecta === sel.has(i))
     if (todoBien) {
@@ -2759,11 +3403,12 @@ function IdentificarActividad({ instruccion, opciones, onComplete, completada, s
     }
   }
   function reiniciar() {
-    if (agotado || completada) return
+    if (agotado || correctoServidor || completada) return
     setSel(new Set()); setVerificado(false)
   }
 
   function getRes(idx) {
+    if (serverMode) return null
     if (!verificado) return null
     const s = sel.has(idx), ok = opciones[idx]?.esCorrecta
     if (ok && s)  return 'correct'
@@ -2771,8 +3416,10 @@ function IdentificarActividad({ instruccion, opciones, onComplete, completada, s
     if (ok && !s) return 'missed'
     return null
   }
-  const allOk = verificado && opciones.every((op, i) => op.esCorrecta === sel.has(i))
-  const isLocked = allOk || agotado || completada
+  const allOk = serverMode
+    ? correctoServidor
+    : verificado && opciones.every((op, i) => op.esCorrecta === sel.has(i))
+  const isLocked = enviando || allOk || agotado || completada
   const restantes = maxIntentos - verificaciones
 
   return (
@@ -2808,8 +3455,8 @@ function IdentificarActividad({ instruccion, opciones, onComplete, completada, s
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         {!isLocked && (
-          <button onClick={verificar} style={{ padding: '10px 24px', background: primaryColor, color: '#fff', border: 'none', borderRadius: 50, fontFamily: 'Nunito', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
-            Verificar ✓
+          <button onClick={verificar} disabled={sel.size === 0 || enviando} style={{ padding: '10px 24px', background: sel.size > 0 && !enviando ? primaryColor : C.border, color: '#fff', border: 'none', borderRadius: 50, fontFamily: 'Nunito', fontWeight: 800, fontSize: 15, cursor: sel.size > 0 && !enviando ? 'pointer' : 'default' }}>
+            {enviando ? 'Verificando…' : 'Verificar ✓'}
           </button>
         )}
         {verificado && !isLocked && (
@@ -2820,8 +3467,9 @@ function IdentificarActividad({ instruccion, opciones, onComplete, completada, s
         <AttemptsLeft restantes={restantes} max={maxIntentos} locked={isLocked} />
       </div>
       {allOk && <FeedbackBox ok msg="¡Muy bien! Identificaste todas las correctas." />}
-      {verificado && !allOk && !agotado && <FeedbackBox ok={false} msg="Algunas respuestas no son correctas. Revisa las marcadas." />}
+      {verificado && !allOk && !agotado && <FeedbackBox ok={false} msg={serverMode ? 'La selección no es correcta. Revísala e inténtalo de nuevo.' : 'Algunas respuestas no son correctas. Revisa las marcadas.'} />}
       {agotado && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }
@@ -2829,7 +3477,7 @@ function IdentificarActividad({ instruccion, opciones, onComplete, completada, s
 // ── Línea de tiempo emocional ─────────────────────────────────────────────────
 function LineaTiempoEmocional({
   instruccion, pista, momentos, retroalimentacion, retroalimentacionError,
-  onComplete, completada, savedAnswer, maxIntentos = 2, primaryColor = C.purple,
+  onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2, primaryColor = C.purple,
 }) {
   const [selecciones, setSelecciones] = useState(() => Object.fromEntries(
     momentos.map((momento, index) => [
@@ -2841,12 +3489,20 @@ function LineaTiempoEmocional({
   const [showPista, setShowPista] = useState(false)
   const [resultado, setResultado] = useState(null)
   const [intentos, setIntentos] = useState(0)
+  const [enviando, setEnviando] = useState(false)
+  const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
   const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
-  const locked = resultado === 'correcto' || resultado === 'agotado' || completada
+  const serverMode = typeof onAttempt === 'function'
+  const locked = enviando || resultado === 'correcto' || resultado === 'agotado' || completada
 
   function seleccionar(momentIndex, optionIndex) {
     if (locked || resultadosMomento[momentIndex] === 'correcto') return
+    if (serverMode) {
+      setSelecciones(prev => ({ ...prev, [momentIndex]: optionIndex }))
+      setResultado(null)
+      return
+    }
     const esCorrecta = !!momentos[momentIndex]?.opciones?.[optionIndex]?.esCorrecta
     const nextSelecciones = { ...selecciones, [momentIndex]: optionIndex }
     const nextResultados = { ...resultadosMomento, [momentIndex]: esCorrecta ? 'correcto' : 'incorrecto' }
@@ -2875,6 +3531,30 @@ function LineaTiempoEmocional({
     }
   }
 
+  async function verificar() {
+    if (!serverMode || locked || Object.keys(selecciones).length !== momentos.length) return
+    setEnviando(true)
+    setErrorIntento('')
+    try {
+      const payload = {
+        momentos: momentos.map((momento, index) => ({
+          momento: momento.momento || momento.texto,
+          seleccion: momento.opciones?.[selecciones[index]]?.texto || '',
+        })),
+      }
+      const evaluacion = await onAttempt(payload)
+      setIntentos(evaluacion.intentos)
+      if (evaluacion.esCorrecta) setResultado('correcto')
+      else if (evaluacion.agotado) setResultado('agotado')
+      else setResultado('incorrecto')
+    } catch (error) {
+      console.error('evaluarIntento lineaTiempoEmocional:', error)
+      setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {pista && (
@@ -2896,10 +3576,10 @@ function LineaTiempoEmocional({
             {(momento.opciones || []).map((opcion, optionIndex) => {
               const selected = selecciones[momentIndex] === optionIndex
               const momentResult = resultadosMomento[momentIndex]
-              const reveal = resultado === 'agotado' || resultado === 'correcto'
+              const reveal = !serverMode && (resultado === 'agotado' || resultado === 'correcto')
               const color = opcion.color || primaryColor
-              const correct = (reveal && opcion.esCorrecta) || (selected && momentResult === 'correcto')
-              const wrong = selected && momentResult === 'incorrecto'
+              const correct = !serverMode && ((reveal && opcion.esCorrecta) || (selected && momentResult === 'correcto'))
+              const wrong = !serverMode && selected && momentResult === 'incorrecto'
               return (
                 <button key={opcion.id || optionIndex} type="button" onClick={() => seleccionar(momentIndex, optionIndex)} disabled={locked || momentResult === 'correcto'} style={{
                   padding: '6px 12px', borderRadius: 50,
@@ -2913,16 +3593,18 @@ function LineaTiempoEmocional({
               )
             })}
           </div>
-          {resultadosMomento[momentIndex] === 'correcto' && <div style={{ marginTop: 8, color: C.green, fontSize: 12, fontWeight: 800 }}>✓ ¡Correcto!</div>}
-          {resultadosMomento[momentIndex] === 'incorrecto' && !locked && <div style={{ marginTop: 8, color: C.red, fontSize: 12, fontWeight: 800 }}>✗ No es esa emoción. Inténtalo nuevamente.</div>}
+          {!serverMode && resultadosMomento[momentIndex] === 'correcto' && <div style={{ marginTop: 8, color: C.green, fontSize: 12, fontWeight: 800 }}>✓ ¡Correcto!</div>}
+          {!serverMode && resultadosMomento[momentIndex] === 'incorrecto' && !locked && <div style={{ marginTop: 8, color: C.red, fontSize: 12, fontWeight: 800 }}>✗ No es esa emoción. Inténtalo nuevamente.</div>}
         </div>
       ))}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {serverMode && !locked && <button onClick={verificar} disabled={Object.keys(selecciones).length !== momentos.length || enviando} style={btnP(Object.keys(selecciones).length === momentos.length && !enviando ? primaryColor : C.border)}>{enviando ? 'Verificando…' : 'Verificar ✓'}</button>}
         <AttemptsLeft restantes={maxIntentos - intentos} max={maxIntentos} locked={locked} />
       </div>
       {resultado === 'correcto' && <FeedbackBox ok msg={retroalimentacion || '¡Muy bien! Reconociste el viaje emocional.'} />}
       {resultado === 'incorrecto' && <FeedbackBox ok={false} msg={retroalimentacionError || 'Revisa cómo se siente el personaje en cada momento.'} />}
-      {resultado === 'agotado' && <FeedbackBox ok={false} msg="Intentos agotados. Las respuestas correctas están marcadas." />}
+      {resultado === 'agotado' && <FeedbackBox ok={false} msg={serverMode ? 'Intentos agotados. La actividad quedó registrada.' : 'Intentos agotados. Las respuestas correctas están marcadas.'} />}
+      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
     </div>
   )
 }

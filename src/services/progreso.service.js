@@ -1,10 +1,11 @@
 import { supabase } from '../lib/supabase'
 
 export async function getProgreso(usuarioId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('actividad_progreso')
     .select('actividad_id')
     .eq('usuario_id', usuarioId)
+  if (error) throw error
   return Object.fromEntries((data || []).map(r => [r.actividad_id, true]))
 }
 
@@ -29,38 +30,66 @@ export async function getRespuestas(usuarioId, libroId) {
 }
 
 export async function isActividadCompleta(usuarioId, actividadId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('actividad_progreso')
     .select('actividad_id')
     .eq('usuario_id', usuarioId)
     .eq('actividad_id', actividadId)
-    .single()
+    .maybeSingle()
+  if (error) throw error
   return !!data
 }
 
-export async function marcarCompleta(usuarioId, libroId, actividadId) {
-  await supabase
-    .from('actividad_progreso')
-    .upsert({ usuario_id: usuarioId, actividad_id: actividadId })
-
-  await supabase
-    .from('progreso')
-    .upsert(
-      { usuario_id: usuarioId, libro_id: libroId, ultima_actividad: new Date().toISOString() },
-      { onConflict: 'usuario_id,libro_id' }
-    )
+export async function registrarProgreso(actividadId, respuesta) {
+  const guardarRespuesta = respuesta !== undefined
+  if (guardarRespuesta) validarPayloadRespuesta(respuesta.valor)
+  const { data, error } = await supabase.rpc('registrar_progreso_actividad', {
+    p_actividad_id: actividadId,
+    p_respuesta: guardarRespuesta ? respuesta.valor : null,
+    p_es_correcta: guardarRespuesta ? (respuesta.esCorrecta ?? null) : null,
+    p_guardar_respuesta: guardarRespuesta,
+  })
+  if (error) throw error
+  if (!data?.ok) throw new Error(data?.motivo || 'error_guardar_progreso')
+  return {
+    ...data,
+    esCorrecta: data.es_correcta ?? null,
+  }
 }
 
-export async function guardarRespuesta(usuarioId, actividadId, libroId, unidadId, respuesta, esCorrecta) {
-  const { error } = await supabase
-    .from('respuestas')
-    .upsert({
-      usuario_id: usuarioId,
-      actividad_id: actividadId,
-      libro_id: libroId,
-      unidad_id: unidadId,
-      respuesta,
-      es_correcta: esCorrecta,
-    }, { onConflict: 'usuario_id,actividad_id' })
+export async function evaluarIntento(actividadId, respuesta) {
+  validarPayloadRespuesta(respuesta)
+  const { data, error } = await supabase.rpc('evaluar_intento_actividad', {
+    p_actividad_id: actividadId,
+    p_respuesta: respuesta,
+  })
   if (error) throw error
+  if (!data?.ok) throw new Error(data?.motivo || 'error_evaluar_intento')
+  return {
+    ...data,
+    esCorrecta: data.es_correcta,
+    maxIntentos: data.max_intentos,
+    yaCompletada: data.ya_completada,
+  }
+}
+
+function validarPayloadRespuesta(valor) {
+  if (valor === null || typeof valor !== 'object') {
+    throw new Error('formato_respuesta_invalido')
+  }
+
+  const serializada = JSON.stringify(valor)
+  const bytes = new TextEncoder().encode(serializada).byteLength
+  if (bytes > 65536) throw new Error('respuesta_demasiado_grande')
+  if (/"data:[^"]*;base64,/i.test(serializada)) {
+    throw new Error('respuesta_base64_no_permitida')
+  }
+}
+
+export async function marcarCompleta(_usuarioId, _libroId, actividadId) {
+  return registrarProgreso(actividadId)
+}
+
+export async function guardarRespuesta(_usuarioId, actividadId, _libroId, _unidadId, respuesta, esCorrecta) {
+  return registrarProgreso(actividadId, { valor: respuesta, esCorrecta })
 }

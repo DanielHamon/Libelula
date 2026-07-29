@@ -62,10 +62,27 @@ function formatFecha(iso) {
   return <span style={{ color: vencido ? C.danger : 'inherit' }}>{d.toLocaleDateString('es-MX')}</span>
 }
 
+function SolicitudCreada({ id, onClose }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+      <div style={{ ...S.card, width: 460, padding: 28, textAlign: 'center' }}>
+        <div style={{ fontSize: 40, marginBottom: 10 }}>🛡️</div>
+        <h3 style={{ margin: '0 0 8px', color: C.success }}>Solicitud creada</h3>
+        <p style={{ color: C.textLight, fontSize: 14, lineHeight: 1.5 }}>
+          Los tokens se generarán después de la aprobación del superadministrador con MFA.
+        </p>
+        <code style={{ display: 'block', marginBottom: 18, fontSize: 12 }}>{id}</code>
+        <button onClick={onClose} style={btn(C.primary)}>Cerrar</button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Modal libro ─────────────────────────────────────────────────────────────
 function ModalLibro({ escuelas, libros, grados, onClose, onSave }) {
   const [form, setForm] = useState({ escuelaId: '', gradoId: '', libroId: '', cantidad: 1, expiraEn: '' })
   const [generados, setGenerados] = useState(null)
+  const [solicitudId, setSolicitudId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -88,11 +105,14 @@ function ModalLibro({ escuelas, libros, grados, onClose, onSave }) {
     if (!form.escuelaId || !form.gradoId || !form.libroId) { setError('Escuela, grado y libro son obligatorios'); return }
     setLoading(true); setError('')
     try {
-      const ids = await onSave(form)
-      setGenerados(ids)
+      const resultado = await onSave(form)
+      if (resultado?.pendiente) setSolicitudId(resultado.id)
+      else setGenerados(resultado)
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
+
+  if (solicitudId) return <SolicitudCreada id={solicitudId} onClose={onClose} />
 
   if (generados) return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
@@ -160,6 +180,7 @@ function ModalLibro({ escuelas, libros, grados, onClose, onSave }) {
 function ModalDocente({ escuelas, onClose, onSave }) {
   const [form, setForm] = useState({ escuelaId: '', emailsRaw: '', expiraEn: '' })
   const [generados, setGenerados] = useState(null)
+  const [solicitudId, setSolicitudId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -171,11 +192,14 @@ function ModalDocente({ escuelas, onClose, onSave }) {
     if (!form.escuelaId || emails.length === 0) { setError('Escuela y al menos un email son obligatorios'); return }
     setLoading(true); setError('')
     try {
-      const ids = await onSave({ escuelaId: form.escuelaId, emails, expiraEn: form.expiraEn || null })
-      setGenerados(ids)
+      const resultado = await onSave({ escuelaId: form.escuelaId, emails, expiraEn: form.expiraEn || null })
+      if (resultado?.pendiente) setSolicitudId(resultado.id)
+      else setGenerados(resultado)
     } catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
+
+  if (solicitudId) return <SolicitudCreada id={solicitudId} onClose={onClose} />
 
   if (generados) return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
@@ -241,6 +265,7 @@ export default function AdminTokens() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(null)
   const [error, setError] = useState('')
+  const [mensaje, setMensaje] = useState('')
   const [revocarId, setRevocarId] = useState(null)
 
   const [escuelas, setEscuelas] = useState([])
@@ -292,8 +317,12 @@ export default function AdminTokens() {
   async function handleRevocar() {
     if (!revocarId) return
     try {
-      await revocarToken(revocarId)
-      setItems(prev => prev.map(i => i.id === revocarId ? { ...i, estado: 'revocado' } : i))
+      const resultado = await revocarToken(revocarId)
+      if (resultado?.pendiente) {
+        setMensaje('La revocación quedó pendiente de aprobación MFA.')
+      } else {
+        setItems(prev => prev.map(i => i.id === revocarId ? { ...i, estado: 'revocado' } : i))
+      }
       setRevocarId(null)
     } catch (e) { setError(e.message) }
   }
@@ -381,6 +410,7 @@ export default function AdminTokens() {
         </div>
 
         {error && <div style={{ background: C.dangerLight, color: C.danger, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
+        {mensaje && <div style={{ background: C.successLight, color: C.success, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{mensaje}</div>}
 
         <div style={{ ...S.card, overflow: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>

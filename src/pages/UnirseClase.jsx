@@ -29,6 +29,7 @@ export default function UnirseClase() {
     try {
       const { clase: claseEncontrada, error: claseError } = await buscarClasePorCodigo(codigoFinal)
       if (claseError === 'no_encontrada') { setError('No se encontró ninguna clase con ese código.'); return }
+      if (claseError === 'demasiados_intentos') { setError('Demasiados intentos. Espera una hora antes de probar otro código.'); return }
       if (claseError === 'ya_inscrito') { setError('Ya eres miembro de esta clase.'); return }
       if (claseError === 'escuela_incorrecta') { setError('Esta clase pertenece a otra escuela. Solo puedes unirte a clases de tu escuela.'); return }
       if (claseError === 'grado_incorrecto') { setError('Esta clase es de un grado diferente al tuyo. Verifica el código con tu docente.'); return }

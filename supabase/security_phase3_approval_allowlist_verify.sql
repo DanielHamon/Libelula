@@ -1,0 +1,16 @@
+SELECT
+  to_regprocedure('public.admin_solicitar_accion_sensible_v2(text,jsonb)') IS NOT NULL AS solicitar_v2,
+  to_regprocedure('public.superadmin_resolver_accion_v2(uuid,boolean)') IS NOT NULL AS resolver_v2,
+  NOT has_table_privilege('authenticated', 'public.escuelas', 'INSERT') AS escuelas_insert_cerrado,
+  NOT has_table_privilege('authenticated', 'public.escuelas', 'UPDATE') AS escuelas_update_cerrado,
+  NOT has_table_privilege('authenticated', 'public.libros', 'INSERT') AS libros_insert_cerrado,
+  NOT has_table_privilege('authenticated', 'public.libros', 'UPDATE') AS libros_update_cerrado,
+  NOT has_table_privilege('authenticated', 'public.unidades', 'INSERT') AS unidades_insert_cerrado,
+  NOT has_table_privilege('authenticated', 'public.unidades', 'UPDATE') AS unidades_update_cerrado,
+  NOT has_table_privilege('authenticated', 'public.unidades', 'DELETE') AS unidades_delete_cerrado,
+  NOT has_table_privilege('authenticated', 'public.tokens', 'INSERT') AS tokens_insert_directo_cerrado,
+  has_function_privilege('authenticated', 'public.admin_crear_tokens_libro(uuid,text,integer,integer,timestamp with time zone)', 'EXECUTE') AS tokens_libro_rpc,
+  has_function_privilege('authenticated', 'public.admin_crear_tokens_docente(uuid,text[],timestamp with time zone)', 'EXECUTE') AS tokens_docente_rpc,
+  has_table_privilege('authenticated', 'public.actividades', 'INSERT') AS actividades_insert,
+  has_table_privilege('authenticated', 'public.actividades', 'UPDATE') AS actividades_update,
+  has_table_privilege('authenticated', 'public.actividades', 'DELETE') AS actividades_delete;

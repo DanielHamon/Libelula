@@ -389,6 +389,25 @@ function validarActividadCampos(tipo, campos) {
       throw new Error('Marca una emoción como respuesta correcta.')
     }
   }
+  if (tipo === 'identificar') {
+    const opciones = campos.opciones || []
+    if (opciones.length < 2) {
+      throw new Error('Agrega al menos dos opciones para identificar.')
+    }
+    if (opciones.some(op => !String(op.texto || '').trim())) {
+      throw new Error('Todas las opciones de identificar deben tener texto.')
+    }
+    const normalizadas = opciones.map(op => String(op.texto).trim().toLocaleLowerCase('es'))
+    if (new Set(normalizadas).size !== normalizadas.length) {
+      throw new Error('Las opciones de identificar no pueden tener textos duplicados.')
+    }
+    if (!opciones.some(op => op.esCorrecta)) {
+      throw new Error('Marca al menos una opción correcta.')
+    }
+    if (opciones.every(op => op.esCorrecta)) {
+      throw new Error('Debe existir al menos una opción incorrecta.')
+    }
+  }
   if (tipo === 'mezclaPinturaGuiada') {
     const colores = (campos.colores || []).filter(color => String(color.nombre || color.label || '').trim())
     if (colores.length < 2) throw new Error('Agrega al menos dos colores a la paleta.')
@@ -422,6 +441,27 @@ function validarActividadCampos(tipo, campos) {
     const palabras = String(campos.fraseCorrecta || '').trim().split(/\s+/).filter(Boolean)
     if (palabras.length < 2) throw new Error('La frase correcta debe contener al menos dos palabras.')
   }
+  if (tipo === 'sopaLetras') {
+    const palabras = Array.isArray(campos.palabras) ? campos.palabras : []
+    const espacio = Number(campos.espacio)
+    if (palabras.length < 1) throw new Error('Escribe al menos una palabra.')
+    if (!Number.isInteger(espacio) || espacio < 5 || espacio > 20) {
+      throw new Error('El tamaño de la cuadrícula debe ser un número entero entre 5 y 20.')
+    }
+    if (palabras.some(palabra => !String(palabra).trim())) {
+      throw new Error('No dejes palabras vacías entre comas.')
+    }
+    if (palabras.some(palabra => !/^[A-ZÁÉÍÓÚÜÑ]+$/u.test(String(palabra).trim().toUpperCase()))) {
+      throw new Error('Cada entrada debe ser una sola palabra formada únicamente por letras.')
+    }
+    if (palabras.some(palabra => String(palabra).trim().length > espacio)) {
+      throw new Error(`Ninguna palabra puede tener más de ${espacio} letras para este tablero.`)
+    }
+    const normalizadas = palabras.map(palabra => String(palabra).trim().toLocaleUpperCase('es'))
+    if (new Set(normalizadas).size !== normalizadas.length) {
+      throw new Error('La sopa de letras no puede contener palabras duplicadas.')
+    }
+  }
   if (tipo === 'lineaTiempoEmocional') {
     const momentos = campos.momentos || []
     if (momentos.length === 0) throw new Error('Agrega al menos un momento emocional.')
@@ -444,17 +484,35 @@ function FormCampos({ tipo, campos, onChange }) {
         <label style={S.label}>Palabras <span style={{ color: C.textLight, fontWeight: 400 }}>(separadas por coma)</span></label>
         <input
           style={{ ...S.input, marginBottom: 12 }} value={palabrasStr}
-          onChange={e => onChange({ ...campos, palabras: e.target.value.split(',').map(p => p.trim().toUpperCase()).filter(Boolean) })}
+          onChange={e => {
+            const palabras = e.target.value.split(',').map(p => p.trim().toUpperCase())
+            onChange({
+              ...campos,
+              palabras,
+              numPalabras: palabras.filter(Boolean).length,
+            })
+          }}
           placeholder="GATO, PERRO, PATO"
         />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div>
             <label style={S.label}>Num. palabras</label>
-            <input style={S.input} type="number" value={campos.numPalabras || 8} onChange={e => onChange({ ...campos, numPalabras: Number(e.target.value) })} />
+            <input style={{ ...S.input, background: C.bg }} type="number" value={(Array.isArray(campos.palabras) ? campos.palabras : []).filter(Boolean).length} readOnly />
           </div>
           <div>
-            <label style={S.label}>Espacio (grid)</label>
-            <input style={S.input} type="number" value={campos.espacio || 12} onChange={e => onChange({ ...campos, espacio: Number(e.target.value) })} />
+            <label style={S.label}>Tamaño de cuadrícula</label>
+            <input
+              style={S.input}
+              type="number"
+              min="5"
+              max="20"
+              step="1"
+              value={campos.espacio ?? 8}
+              onChange={e => onChange({ ...campos, espacio: e.target.value === '' ? '' : Number(e.target.value) })}
+            />
+            <p style={{ margin: '5px 0 0', color: C.textLight, fontSize: 11 }}>
+              {Number.isInteger(Number(campos.espacio)) ? `${campos.espacio} × ${campos.espacio} casillas` : 'Elige un valor entre 5 y 20'}
+            </p>
           </div>
         </div>
       </>
@@ -795,6 +853,18 @@ function FormCampos({ tipo, campos, onChange }) {
     }
     return (
       <>
+        <label style={{ ...S.label, display: 'flex', alignItems: 'center', gap: 9, marginBottom: 14 }}>
+          <input
+            type="checkbox"
+            checked={campos.modoEvaluable === true}
+            onChange={e => onChange({ ...campos, modoEvaluable: e.target.checked })}
+          />
+          Modo evaluable
+          <span style={{ color: C.textLight, fontWeight: 400 }}>
+            (cada respuesta debe comenzar con su letra)
+          </span>
+        </label>
+
         <label style={S.label}>Título <span style={{ color: C.textLight, fontWeight: 400 }}>(aparece como encabezado)</span></label>
         <input
           style={{ ...S.input, marginBottom: 12 }}
@@ -838,9 +908,9 @@ function FormCampos({ tipo, campos, onChange }) {
           placeholder="ayudo, lugar, siente"
         />
 
-        <label style={S.label}>Líneas <span style={{ color: C.textLight, fontWeight: 400 }}>(respuesta opcional: si la llenas, se valida)</span></label>
+        <label style={S.label}>Líneas <span style={{ color: C.textLight, fontWeight: 400 }}>(el ejemplo es opcional y no obliga al estudiante)</span></label>
         {lineas.map((item, i) => (
-          <div key={item.id || i} style={{ display: 'grid', gridTemplateColumns: '80px 70px 1fr 1fr 1fr 28px', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+          <div key={item.id || i} style={{ display: 'grid', gridTemplateColumns: '90px 70px minmax(150px, 1.35fr) minmax(150px, 1fr) 28px', gap: 8, alignItems: 'center', marginBottom: 8 }}>
             <input
               style={S.input}
               value={item.id || ''}
@@ -861,15 +931,9 @@ function FormCampos({ tipo, campos, onChange }) {
             />
             <input
               style={S.input}
-              value={item.pista || ''}
-              onChange={e => setLinea(i, 'pista', e.target.value)}
-              placeholder="pista opcional"
-            />
-            <input
-              style={S.input}
               value={item.respuesta || ''}
               onChange={e => setLinea(i, 'respuesta', e.target.value)}
-              placeholder="respuesta opcional"
+              placeholder="ejemplo opcional"
             />
             <button
               type="button"
@@ -2067,6 +2131,7 @@ function UnidadRow({ unidad, unidades, activitiesVersion, index, total, onMover,
   const [form, setForm] = useState({ titulo: unidad.titulo, subtitulo: unidad.subtitulo || '', texto: unidad.texto || '' })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+  const [mensaje, setMensaje] = useState('')
   const [actividades, setActividades] = useState(null)
   const [editandoAct, setEditandoAct] = useState(null)
   const [confirmActDelete, setConfirmActDelete] = useState(null)
@@ -2153,8 +2218,12 @@ function UnidadRow({ unidad, unidades, activitiesVersion, index, total, onMover,
     if (!form.titulo.trim()) { setError('El título es obligatorio'); return }
     setGuardando(true); setError('')
     try {
-      await updateUnidad(unidad.id, form)
-      onUpdate(unidad.id, form)
+      const resultado = await updateUnidad(unidad.id, form)
+      if (resultado?.pendiente) {
+        setMensaje('La edición quedó pendiente de aprobación.')
+      } else {
+        onUpdate(unidad.id, form)
+      }
       setEditando(false)
     } catch (err) { setError(err.message) }
     finally { setGuardando(false) }
@@ -2163,8 +2232,14 @@ function UnidadRow({ unidad, unidades, activitiesVersion, index, total, onMover,
   async function handleDelete() {
     setGuardando(true)
     try {
-      await deleteUnidad(unidad.id)
-      onDelete(unidad.id)
+      const resultado = await deleteUnidad(unidad.id)
+      if (resultado?.pendiente) {
+        setMensaje('La eliminación quedó pendiente de aprobación.')
+        setConfirmDelete(false)
+        setGuardando(false)
+      } else {
+        onDelete(unidad.id)
+      }
     } catch (err) { setError(err.message); setGuardando(false) }
   }
 
@@ -2202,6 +2277,12 @@ function UnidadRow({ unidad, unidades, activitiesVersion, index, total, onMover,
               <button type="submit" disabled={guardando} style={{ ...btn(C.primary), flex: 1 }}>{guardando ? 'Guardando…' : 'Guardar cambios'}</button>
             </div>
           </form>
+        </div>
+      )}
+
+      {mensaje && !editando && (
+        <div style={{ background: C.successLight, color: C.success, borderTop: `1px solid ${C.border}`, padding: '10px 16px', fontSize: 13, fontWeight: 600 }}>
+          {mensaje}
         </div>
       )}
 
@@ -2367,10 +2448,11 @@ export default function AdminLibroDetalle() {
     setGuardando(true); setError(''); setExito('')
     try {
       const updates = { ...form, grado_id: Number(form.grado_id) }
-      await updateLibro(id, updates)
-      setLibro(prev => ({ ...prev, ...updates }))
+      const resultado = await updateLibro(id, updates)
       setEditando(false)
-      setExito('Cambios guardados.')
+      setExito(resultado?.pendiente
+        ? 'Los cambios quedaron pendientes de aprobación del superadministrador.'
+        : 'Cambios guardados.')
       setTimeout(() => setExito(''), 2500)
     } catch (err) { setError(err.message) }
     finally { setGuardando(false) }
@@ -2380,10 +2462,12 @@ export default function AdminLibroDetalle() {
     e.preventDefault()
     if (!nuevaUnidad.titulo.trim()) { setError('El título de la unidad es obligatorio'); return }
     try {
-      const data = await createUnidad(id, nuevaUnidad, unidades.length + 1)
-      setUnidades(prev => [...prev, data])
+      const resultado = await createUnidad(id, nuevaUnidad, unidades.length + 1)
       setNuevaUnidad({ titulo: '', subtitulo: '', texto: '' })
       setNuevaUnidadOpen(false)
+      if (resultado?.pendiente) {
+        setExito('La nueva unidad quedó pendiente de aprobación.')
+      }
     } catch (err) { setError(err.message) }
   }
 
@@ -2402,8 +2486,10 @@ export default function AdminLibroDetalle() {
     ;[arr[index], arr[target]] = [arr[target], arr[index]]
     const updates = arr.map((u, i) => ({ id: u.id, orden: i + 1 }))
     try {
-      await reorderUnidades(updates)
-      setUnidades(arr.map((u, i) => ({ ...u, orden: i + 1 })))
+      const resultado = await reorderUnidades(updates)
+      if (resultado?.pendiente) {
+        setExito('El nuevo orden quedó pendiente de aprobación.')
+      }
     } catch (err) { setError(err.message) }
   }
 

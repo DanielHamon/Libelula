@@ -8,7 +8,9 @@ const NAV = [
   { path: '/admin/libros', label: 'Libros', icon: '📚' },
   { path: '/admin/tokens', label: 'Tokens', icon: '🎟️' },
   { path: '/admin/usuarios', label: 'Usuarios', icon: '👥' },
+  { path: '/admin/aprobaciones', label: 'Aprobaciones', icon: '✅' },
   { path: '/admin/logs', label: 'Logs', icon: '📋' },
+  { path: '/seguridad/mfa', label: 'Seguridad MFA', icon: '🛡️' },
 ]
 
 export default function AdminLayout({ children }) {

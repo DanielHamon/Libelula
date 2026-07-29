@@ -72,6 +72,7 @@ export default function NuevaClase() {
     } catch (err) {
       console.error(err)
       const mensajes = {
+        acceso_denegado: 'Tu sesión no tiene permisos para crear clases. Vuelve a iniciar sesión o contacta al administrador.',
         docente_sin_escuela: 'Tu cuenta no tiene una escuela asignada. Contacta a tu institución.',
         error_insertar_libros: 'La clase se creó pero no se pudieron asignar los libros. Agrégalos desde el panel de la clase.',
         error_guardar_emoji: 'La clase se creó, pero no se pudo guardar el emoji. Verifica la migración de Supabase.',

@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { getProgreso, getRespuestas, marcarCompleta, guardarRespuesta } from '../services/progreso.service'
+import { getLibroConUnidades } from '../services/libros.service'
+import { evaluarIntento, getProgreso, getRespuestas, registrarProgreso } from '../services/progreso.service'
 import Sidebar from '../components/Sidebar'
 import { ActivityCard, C } from '../components/ActivityCard'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 
 export default function Unidad() {
   const { libroId, unidadId } = useParams()
+  const scrollStorageKey = `iabooks:unidad:${libroId}:${unidadId}:scroll`
   const navigate = useNavigate()
   const width = useWindowWidth()
   const isMobile = width < 768
@@ -16,28 +18,36 @@ export default function Unidad() {
   const [actividades, setActividades] = useState([])
   const [progreso, setProgreso] = useState({})
   const [respuestas, setRespuestas] = useState({})
+  const [errorProgreso, setErrorProgreso] = useState('')
   const [cargando, setCargando] = useState(true)
+  const actividadesScrollRef = useRef(null)
 
   useEffect(() => { cargarDatos() }, [unidadId])
+
+  useEffect(() => {
+    if (cargando || !actividadesScrollRef.current) return
+    const top = Number(sessionStorage.getItem(scrollStorageKey)) || 0
+    const frame = requestAnimationFrame(() => {
+      if (actividadesScrollRef.current) actividadesScrollRef.current.scrollTop = top
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [cargando, scrollStorageKey])
 
   async function cargarDatos() {
     setCargando(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      const [{ data: unidadData }, prog, respuestasData] = await Promise.all([
-        supabase.from('unidades')
-          .select('*, actividades(*)')
-          .eq('id', unidadId)
-          .single(),
+      const [libroResult, prog, respuestasData] = await Promise.all([
+        getLibroConUnidades(libroId),
         user ? getProgreso(user.id) : Promise.resolve({}),
         user ? getRespuestas(user.id, libroId) : Promise.resolve({}),
       ])
 
+      const unidadData = libroResult.unidades?.find(item => item.id === unidadId)
       if (unidadData) {
         setUnidad(unidadData)
         const acts = (unidadData.actividades || [])
-          .map(a => ({ ...a, ...a.campos }))
           .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0))
         setActividades(acts)
       }
@@ -48,24 +58,47 @@ export default function Unidad() {
   }
 
   async function guardarProgreso(actividadId, respuesta, esCorrecta) {
+    setErrorProgreso('')
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      await marcarCompleta(user.id, libroId, actividadId)
+      await registrarProgreso(
+        actividadId,
+        respuesta !== undefined
+          ? { valor: respuesta, esCorrecta: esCorrecta ?? null }
+          : undefined
+      )
       setProgreso(prev => ({ ...prev, [actividadId]: true }))
       if (respuesta !== undefined) {
-        try {
-          await guardarRespuesta(user.id, actividadId, libroId, unidadId, respuesta, esCorrecta ?? null)
-          setRespuestas(prev => ({
-            ...prev,
-            [actividadId]: { respuesta, esCorrecta: esCorrecta ?? null },
-          }))
-        } catch (e) {
-          console.warn('[Libelula] guardarRespuesta falló — código:', e?.code, '| mensaje:', e?.message, '| detalles:', e?.details)
-        }
+        setRespuestas(prev => ({
+          ...prev,
+          [actividadId]: { respuesta, esCorrecta: esCorrecta ?? null },
+        }))
       }
     } catch (e) {
       console.error('guardarProgreso:', e)
+      setErrorProgreso('No pudimos guardar tu progreso. Inténtalo de nuevo.')
+    }
+  }
+
+  async function verificarIntento(actividadId, respuesta) {
+    setErrorProgreso('')
+    try {
+      const resultado = await evaluarIntento(actividadId, respuesta)
+      if (resultado.completada) {
+        setProgreso(prev => ({ ...prev, [actividadId]: true }))
+        setRespuestas(prev => ({
+          ...prev,
+          [actividadId]: {
+            respuesta,
+            esCorrecta: resultado.esCorrecta,
+          },
+        }))
+      }
+      return resultado
+    } catch (error) {
+      setErrorProgreso('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
+      throw error
     }
   }
 
@@ -97,9 +130,14 @@ export default function Unidad() {
             </div>
           </div>
         </div>
-        <div style={{ flex: 1, overflowX: 'hidden', overflowY: 'scroll', scrollSnapType: 'y mandatory', overscrollBehavior: 'contain' }}>
+        {errorProgreso && (
+          <div role="alert" style={{ padding: '10px 16px', background: '#FEE2E2', color: '#991B1B', fontWeight: 700, textAlign: 'center' }}>
+            {errorProgreso}
+          </div>
+        )}
+        <div ref={actividadesScrollRef} onScroll={event => sessionStorage.setItem(scrollStorageKey, String(event.currentTarget.scrollTop))} style={{ flex: 1, overflowX: 'hidden', overflowY: 'scroll', scrollSnapType: 'y mandatory', overscrollBehavior: 'contain' }}>
           {actividades.map((act, idx) => (
-            <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} respuestaGuardada={respuestas[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, respuesta, esCorrecta)} snapMode={true} />
+            <ActivityCard key={act.id} act={act} numero={idx + 1} isMobile={isMobile} completada={!!progreso[act.id]} respuestaGuardada={respuestas[act.id]} onComplete={(respuesta, esCorrecta) => guardarProgreso(act.id, respuesta, esCorrecta)} onAttempt={['seleccionMultiple', 'verdaderoFalso', 'identificar', 'selectorEmocionColor', 'lineaTiempoEmocional', 'completarPalabras', 'ordenarPalabras', 'ordenarEventos', 'clasificacionCategorias', 'emparejar', 'sopaLetras', 'crucigrama', 'separarSilabas', 'acrostico'].includes(act.tipo) ? respuesta => verificarIntento(act.id, respuesta) : undefined} snapMode={true} />
           ))}
           <div style={{ height: 1 }} />
         </div>

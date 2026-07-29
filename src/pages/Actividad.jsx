@@ -88,6 +88,7 @@ export default function Actividad() {
   const [actividad, setActividad] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [completada, setCompletada] = useState(false)
+  const [errorProgreso, setErrorProgreso] = useState('')
 
   useEffect(() => { cargarActividad() }, [actividadId])
 
@@ -106,10 +107,16 @@ export default function Actividad() {
   }
 
   async function guardarProgreso() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await marcarCompleta(user.id, libroId, actividadId)
-    setCompletada(true)
+    setErrorProgreso('')
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('autenticacion_requerida')
+      await marcarCompleta(user.id, libroId, actividadId)
+      setCompletada(true)
+    } catch (error) {
+      console.error('guardarProgreso:', error)
+      setErrorProgreso('No pudimos guardar tu progreso. Inténtalo de nuevo.')
+    }
   }
 
   const subtitulos = {
@@ -156,6 +163,11 @@ export default function Actividad() {
           <p style={{ fontSize: 13, color: C.textLight, marginBottom: 20, marginTop: 0 }}>
             {subtitulos[tipo] || ''}
           </p>
+          {errorProgreso && (
+            <div role="alert" style={{ marginBottom: 16, padding: '10px 14px', borderRadius: 10, background: '#FEE2E2', color: '#991B1B', fontWeight: 700 }}>
+              {errorProgreso}
+            </div>
+          )}
 
           {tipo === 'sopaLetras' && (
             <SopaLetras
@@ -165,7 +177,7 @@ export default function Actividad() {
               alreadyComplete={completada}
               palabras={actividad?.palabras ?? PALABRAS}
               numPalabras={actividad?.numPalabras ?? actividad?.palabras?.length ?? PALABRAS.length}
-              espacio={Math.min(Math.max(actividad?.espacio ?? 10, 5), 12)}
+              espacio={Math.min(Math.max(actividad?.espacio ?? 10, 5), 20)}
             />
           )}
           {tipo === 'colorear' && (

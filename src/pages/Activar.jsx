@@ -107,6 +107,14 @@ export default function Activar() {
     if (!codigoLimpio) return
     setError(''); setCargando(true)
     try {
+      // La verificación de códigos exige una sesión. Para cuentas nuevas se
+      // conserva el código localmente y se valida inmediatamente después del
+      // registro, evitando un oráculo anónimo de tokens.
+      if (!usuario) {
+        setTokenData(null)
+        setFase('registro')
+        return
+      }
       const result = await verificarToken(codigoLimpio)
       if (!result.valido) {
         setError(
@@ -116,14 +124,21 @@ export default function Activar() {
             ? 'Este código ya fue activado. Si el libro es tuyo, inicia sesión.'
             : result.motivo === 'token_invalido'
             ? 'Código no válido. Verifica que lo hayas escrito correctamente.'
-            : 'Este código ha sido desactivado. Contacta a tu institución.'
+            : result.motivo === 'grado_incorrecto'
+            ? 'Este libro no pertenece a tu grado.'
+            : result.motivo === 'escuela_incorrecta'
+            ? 'Este código pertenece a otra institución.'
+            : result.motivo === 'libro_no_disponible_en_escuela'
+            ? 'Este libro no está disponible para tu institución.'
+            : result.motivo === 'error_servidor'
+            ? 'No se pudo verificar el código. Intenta nuevamente.'
+            : 'Este código no está disponible. Contacta a tu institución.'
         )
         return
       }
       setTokenData({
         libroTitulo: result.libro_titulo,
         tipo: result.tipo,
-        email_autorizado: result.email_autorizado ?? null,
       })
       setFase(usuario ? 'confirmar' : 'registro')
     } catch {
@@ -137,13 +152,15 @@ export default function Activar() {
     try {
       const codigoLimpio = codigo.trim().toUpperCase()
       const result = tokenData?.tipo === 'docente'
-        ? await activarTokenDocente(codigoLimpio, usuario.id, usuario.email)
-        : await activarTokenLibro(codigoLimpio, usuario.id)
+        ? await activarTokenDocente(codigoLimpio)
+        : await activarTokenLibro(codigoLimpio)
 
       if (!result.ok) {
         const mensajes = {
+          demasiados_intentos: 'Demasiados intentos. Espera una hora antes de probar otro código.',
           email_no_autorizado: 'Tu correo no coincide con el autorizado para este token docente.',
           libro_no_disponible_en_escuela: 'Este libro no está disponible para tu escuela.',
+          grado_incorrecto: 'Este libro no pertenece a tu grado.',
           grado_no_coincide: 'Este libro no corresponde a tu grado.',
           ya_tienes_libro: `Ya tienes "${tokenData?.libroTitulo || 'este libro'}" en tu biblioteca.`,
         }
@@ -185,15 +202,6 @@ export default function Activar() {
     e.preventDefault()
     setError(''); setCargando(true)
     try {
-      // Pre-check para docente: validar email ANTES de crear la cuenta en auth,
-      // para evitar que quede una cuenta huérfana si el email no coincide con el token.
-      if (tokenData?.tipo === 'docente' && tokenData?.email_autorizado) {
-        if (form.email.toLowerCase() !== tokenData.email_autorizado.toLowerCase()) {
-          setError('Tu correo no coincide con el autorizado para este token docente.')
-          return
-        }
-      }
-
       const { data, error: signUpError } = await supabase.auth.signUp({
         email: form.email,
         password: form.password,
@@ -213,16 +221,35 @@ export default function Activar() {
       await supabase.from('profiles').update({ nombre: form.nombre }).eq('id', data.user.id)
 
       const codigoLimpio = codigo.trim().toUpperCase()
-      const result = tokenData?.tipo === 'docente'
-        ? await activarTokenDocente(codigoLimpio, data.user.id, form.email)
-        : await activarTokenLibro(codigoLimpio, data.user.id)
+      const validacion = await verificarToken(codigoLimpio)
+      if (!validacion?.valido) {
+        const mensajes = {
+          demasiados_intentos: 'Demasiados intentos. Espera antes de probar otro código.',
+          token_invalido: 'Código no válido. Verifica que lo hayas escrito correctamente.',
+          error_servidor: 'No se pudo verificar el código. Intenta nuevamente.',
+        }
+        setUsuario(data.user)
+        setError(mensajes[validacion?.motivo] || 'Este código no está disponible.')
+        return
+      }
+
+      const tokenValidado = {
+        libroTitulo: validacion.libro_titulo,
+        tipo: validacion.tipo,
+      }
+      setTokenData(tokenValidado)
+      const result = tokenValidado.tipo === 'docente'
+        ? await activarTokenDocente(codigoLimpio)
+        : await activarTokenLibro(codigoLimpio)
 
       if (!result.ok) {
         const mensajes = {
+          demasiados_intentos: 'Demasiados intentos. Espera una hora antes de probar otro código.',
           email_no_autorizado: 'Tu correo no coincide con el autorizado para este token docente.',
           libro_no_disponible_en_escuela: 'Este libro no está disponible para tu escuela.',
+          grado_incorrecto: 'Este libro no pertenece a tu grado.',
           grado_no_coincide: 'Este libro no corresponde a tu grado.',
-          ya_tienes_libro: `Ya tienes "${tokenData?.libroTitulo || 'este libro'}" en tu biblioteca.`,
+          ya_tienes_libro: `Ya tienes "${tokenValidado.libroTitulo || 'este libro'}" en tu biblioteca.`,
         }
         setError(mensajes[result.motivo] || 'Error al activar. Intenta de nuevo.')
         return
@@ -255,9 +282,11 @@ export default function Activar() {
     if (fase === 'registro' || fase === 'confirmar') return (
       <LeftPanel
         bg={`linear-gradient(135deg, ${C.success}, #059669)`}
-        icon={tokenData?.tipo === 'docente' ? '🏫' : '✅'}
-        title="¡Código válido!"
-        subtitle={tokenData?.tipo === 'docente'
+        icon={fase === 'confirmar' ? (tokenData?.tipo === 'docente' ? '🏫' : '✅') : '🔐'}
+        title={fase === 'confirmar' ? '¡Código válido!' : 'Crea tu cuenta'}
+        subtitle={fase === 'registro'
+          ? 'Validaremos tu código de forma segura al terminar el registro.'
+          : tokenData?.tipo === 'docente'
           ? 'Tu cuenta docente está lista para activarse.'
           : 'Tu libro está listo para activarse.'}
         extra={tokenData?.libroTitulo && (
@@ -340,13 +369,13 @@ export default function Activar() {
     if (fase === 'registro') return (
       <>
         <div style={{
-          background: C.successLight, border: `1px solid ${C.success}30`, borderRadius: 12,
+          background: C.primaryLight, border: `1px solid ${C.primary}30`, borderRadius: 12,
           padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 22,
         }}>
-          <span style={{ fontSize: 20 }}>✓</span>
+          <span style={{ fontSize: 20 }}>🔑</span>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.success }}>Código validado</div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{tokenData?.libroTitulo}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.primary }}>Código recibido</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Se validará al crear tu cuenta</div>
           </div>
         </div>
         <h2 style={{ fontSize: 26, fontWeight: 800, color: C.text, marginBottom: 6 }}>Crear cuenta</h2>

@@ -134,7 +134,16 @@ export async function crearClase({ nombre, emoji = '🏫', gradoId, libros }) {
     p_nombre: nombre,
     p_grado_id: gradoId,
   })
-  if (error || !data?.ok) throw new Error(data?.motivo ?? 'error_crear_clase')
+  if (error) {
+    console.error('[crearClase] RPC crear_clase falló:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    })
+    throw new Error(error.code === '42501' ? 'acceso_denegado' : 'error_crear_clase')
+  }
+  if (!data?.ok) throw new Error(data?.motivo ?? 'error_crear_clase')
 
   // La RPC puede devolver clase_id o id según la versión del procedimiento
   const claseId = data.clase_id ?? data.id
@@ -192,8 +201,9 @@ export async function buscarClasePorCodigo(codigo) {
 
 export async function unirseAClase(codigo) {
   const { data, error } = await supabase.rpc('unirse_clase', { p_codigo: codigo })
-  if (error) return false
-  return data?.ok === true
+  if (error) throw error
+  if (!data?.ok) throw new Error(data?.motivo || 'error_unirse_clase')
+  return true
 }
 
 export async function getClasesEstudiante(estudianteId) {
@@ -210,11 +220,12 @@ export async function getClasesEstudiante(estudianteId) {
 }
 
 export async function eliminarEstudianteDeClase(claseId, estudianteId) {
-  await supabase
+  const { error } = await supabase
     .from('inscripciones')
     .delete()
     .eq('clase_id', claseId)
     .eq('estudiante_id', estudianteId)
+  if (error) throw error
 }
 
 export async function eliminarClase(claseId) {

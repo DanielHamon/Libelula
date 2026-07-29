@@ -1,18 +1,46 @@
 import { supabase } from '../lib/supabase'
 
-// ─── Internos ────────────────────────────────────────────────────────────────
-
-async function logAdminAction({ accion, entidad, entidad_id, payload = null }) {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return
-  const { error } = await supabase.from('admin_logs').insert({
-    admin_id: session.user.id,
-    accion,
-    entidad,
-    entidad_id: String(entidad_id),
-    payload,
+export async function solicitarAccionSensible(tipo, payload) {
+  const { data, error } = await supabase.rpc('admin_solicitar_accion_sensible_v2', {
+    p_tipo: tipo,
+    p_payload: payload,
   })
-  if (error) console.error('admin_log error:', error.message)
+  if (error) throw error
+  return data
+}
+
+export async function getAccionesAdminPendientes({ estado = 'pendiente' } = {}) {
+  let query = supabase
+    .from('acciones_admin_pendientes')
+    .select(`
+      id, tipo, payload, estado, solicitado_en, resuelto_en, resultado, error,
+      solicitante:profiles!acciones_admin_pendientes_solicitante_id_fkey(nombre, email),
+      aprobador:profiles!acciones_admin_pendientes_aprobador_id_fkey(nombre, email)
+    `)
+    .order('solicitado_en', { ascending: false })
+  if (estado) query = query.eq('estado', estado)
+  const { data, error } = await query
+  if (error) throw error
+  return data
+}
+
+export async function getEstadoSuperadministrador() {
+  const [{ data: esSuper, error: superError }, { data: nivel, error: nivelError }] = await Promise.all([
+    supabase.rpc('es_superadministrador'),
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+  ])
+  if (superError) throw superError
+  if (nivelError) throw nivelError
+  return { esSuper: Boolean(esSuper), esAal2: nivel.currentLevel === 'aal2' }
+}
+
+export async function resolverAccionAdmin(id, aprobar) {
+  const { data, error } = await supabase.rpc('superadmin_resolver_accion_v3', {
+    p_accion_id: id,
+    p_aprobar: aprobar,
+  })
+  if (error) throw error
+  return data
 }
 
 function toSlug(str) {
@@ -20,10 +48,6 @@ function toSlug(str) {
     .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e')
     .replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o').replace(/[úùü]/g, 'u')
     .replace(/[ñ]/g, 'n').replace(/[^a-z0-9\s_]/g, '').replace(/\s+/g, '_').slice(0, 60)
-}
-
-function genTokenId(tipo) {
-  return `${tipo === 'libro' ? 'TL' : 'TD'}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`
 }
 
 // ─── Grados (selector) ───────────────────────────────────────────────────────
@@ -78,38 +102,28 @@ export async function getEscuelaDetalle(id) {
 }
 
 export async function createEscuela({ nombre, ciudad, codigo }) {
-  const { data, error } = await supabase
-    .from('escuelas')
-    .insert({ nombre, ciudad, codigo: codigo.toUpperCase() })
-    .select()
-    .single()
-  if (error) throw error
-  await logAdminAction({ accion: 'creo_escuela', entidad: 'escuela', entidad_id: data.id, payload: { nombre, codigo } })
-  return data
+  return solicitarAccionSensible('crear_escuela', { nombre, ciudad, codigo })
 }
 
 export async function toggleEscuelaActiva(id, activa) {
-  const { error } = await supabase.from('escuelas').update({ activa }).eq('id', id)
-  if (error) throw error
-  await logAdminAction({ accion: activa ? 'activo_escuela' : 'desactivo_escuela', entidad: 'escuela', entidad_id: id })
+  return solicitarAccionSensible('cambiar_estado_escuela', {
+    escuela_id: id,
+    activa,
+  })
 }
 
 export async function asignarLibroEscuela(escuelaId, libroId) {
-  const { error } = await supabase
-    .from('escuela_libros')
-    .insert({ escuela_id: escuelaId, libro_id: libroId })
-  if (error) throw error
-  await logAdminAction({ accion: 'asigno_libro_escuela', entidad: 'escuela', entidad_id: escuelaId, payload: { libro_id: libroId } })
+  return solicitarAccionSensible('asignar_libro_escuela', {
+    escuela_id: escuelaId,
+    libro_id: libroId,
+  })
 }
 
 export async function removerLibroEscuela(escuelaId, libroId) {
-  const { error } = await supabase
-    .from('escuela_libros')
-    .delete()
-    .eq('escuela_id', escuelaId)
-    .eq('libro_id', libroId)
-  if (error) throw error
-  await logAdminAction({ accion: 'removio_libro_escuela', entidad: 'escuela', entidad_id: escuelaId, payload: { libro_id: libroId } })
+  return solicitarAccionSensible('remover_libro_escuela', {
+    escuela_id: escuelaId,
+    libro_id: libroId,
+  })
 }
 
 // ─── Libros ──────────────────────────────────────────────────────────────────
@@ -143,30 +157,21 @@ export async function createLibro({
   color_acento, color_encabezado_inicio, color_encabezado_fin, color_fondo_actividades,
 }) {
   const id = customId || toSlug(titulo)
-  const { data, error } = await supabase
-    .from('libros')
-    .insert({
-      id, titulo, descripcion, emoji, grado_id: Number(grado_id), portada_url, pdf_url,
-      color_acento, color_encabezado_inicio, color_encabezado_fin, color_fondo_actividades,
-      activo: true,
-    })
-    .select()
-    .single()
-  if (error) throw error
-  await logAdminAction({ accion: 'creo_libro', entidad: 'libro', entidad_id: data.id, payload: { titulo, grado_id } })
-  return data
+  return solicitarAccionSensible('crear_libro', {
+    id, titulo, descripcion, emoji, grado_id: Number(grado_id), portada_url, pdf_url,
+    color_acento, color_encabezado_inicio, color_encabezado_fin, color_fondo_actividades,
+  })
 }
 
 export async function updateLibro(id, campos) {
-  const { error } = await supabase.from('libros').update(campos).eq('id', id)
-  if (error) throw error
-  await logAdminAction({ accion: 'edito_libro', entidad: 'libro', entidad_id: id, payload: campos })
+  return solicitarAccionSensible('editar_libro', { libro_id: id, campos })
 }
 
 export async function toggleLibroActivo(id, activo) {
-  const { error } = await supabase.from('libros').update({ activo }).eq('id', id)
-  if (error) throw error
-  await logAdminAction({ accion: activo ? 'activo_libro' : 'desactivo_libro', entidad: 'libro', entidad_id: id })
+  return solicitarAccionSensible('cambiar_estado_libro', {
+    libro_id: id,
+    activo,
+  })
 }
 
 // ─── Unidades ────────────────────────────────────────────────────────────────
@@ -183,36 +188,23 @@ export async function getUnidades(libroId) {
 
 export async function createUnidad(libroId, { titulo, subtitulo, texto }, orden) {
   const id = `${libroId.slice(0, 20)}_u${Math.random().toString(36).slice(2, 7)}`
-  const { data, error } = await supabase
-    .from('unidades')
-    .insert({ id, libro_id: libroId, titulo, subtitulo: subtitulo || null, texto: texto || null, orden })
-    .select()
-    .single()
-  if (error) throw error
-  await logAdminAction({ accion: 'creo_unidad', entidad: 'unidad', entidad_id: data.id, payload: { titulo, libro_id: libroId } })
-  return data
+  return solicitarAccionSensible('crear_unidad', {
+    id, libro_id: libroId, titulo, subtitulo, texto, orden,
+  })
 }
 
 export async function updateUnidad(id, { titulo, subtitulo, texto }) {
-  const { error } = await supabase
-    .from('unidades')
-    .update({ titulo, subtitulo: subtitulo || null, texto: texto || null })
-    .eq('id', id)
-  if (error) throw error
-  await logAdminAction({ accion: 'edito_unidad', entidad: 'unidad', entidad_id: id, payload: { titulo } })
+  return solicitarAccionSensible('editar_unidad', {
+    unidad_id: id, titulo, subtitulo, texto,
+  })
 }
 
 export async function deleteUnidad(id) {
-  const { error } = await supabase.from('unidades').delete().eq('id', id)
-  if (error) throw error
-  await logAdminAction({ accion: 'elimino_unidad', entidad: 'unidad', entidad_id: id })
+  return solicitarAccionSensible('eliminar_unidad', { unidad_id: id })
 }
 
 export async function reorderUnidades(updates) {
-  for (const { id, orden } of updates) {
-    const { error } = await supabase.from('unidades').update({ orden }).eq('id', id)
-    if (error) throw error
-  }
+  return solicitarAccionSensible('reordenar_unidades', { unidades: updates })
 }
 
 // ─── Actividades ─────────────────────────────────────────────────────────────
@@ -235,14 +227,12 @@ export async function createActividad(unidadId, { tipo, orden, campos }) {
     .select()
     .single()
   if (error) throw error
-  await logAdminAction({ accion: 'creo_actividad', entidad: 'actividad', entidad_id: data.id, payload: { tipo, unidad_id: unidadId } })
   return data
 }
 
 export async function updateActividad(id, campos) {
   const { error } = await supabase.from('actividades').update({ campos }).eq('id', id)
   if (error) throw error
-  await logAdminAction({ accion: 'edito_actividad', entidad: 'actividad', entidad_id: id })
 }
 
 export async function updateAndPositionActivity(id, campos, unidadDestinoId, posicion) {
@@ -301,17 +291,6 @@ export async function updateAndPositionActivity(id, campos, unidadDestinoId, pos
   const failed = results.find(result => result.error)
   if (failed?.error) throw failed.error
 
-  await logAdminAction({
-    accion: 'edito_y_reubico_actividad',
-    entidad: 'actividad',
-    entidad_id: id,
-    payload: {
-      unidad_origen_id: actual.unidad_id,
-      unidad_destino_id: unidadDestinoId,
-      orden_anterior: actual.orden,
-      orden_nuevo: nuevaPosicion,
-    },
-  })
 }
 
 export async function reorderActividades(actividades) {
@@ -362,12 +341,6 @@ export async function reorderActividades(actividades) {
     throw finalFailure.error
   }
 
-  await logAdminAction({
-    accion: 'reordeno_actividades',
-    entidad: 'actividad',
-    entidad_id: actividades[0]?.unidad_id || null,
-    payload: { orden: actividades.map((actividad, index) => ({ id: actividad.id, orden: index + 1 })) },
-  })
 }
 
 // ─── Tokens ──────────────────────────────────────────────────────────────────
@@ -387,75 +360,139 @@ export async function getTokens({ tipo, escuelaId, libroId, estado, q = '', offs
   return { data, count }
 }
 
-export async function uploadLibroArchivo(path, file) {
+const STORAGE_RULES = {
+  portada: {
+    maxBytes: 5 * 1024 * 1024,
+    mimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+    extensions: ['jpg', 'jpeg', 'png', 'webp'],
+    stagingFolder: 'portadas',
+  },
+  pdfs: {
+    maxBytes: 50 * 1024 * 1024,
+    mimeTypes: ['application/pdf'],
+    extensions: ['pdf'],
+    stagingFolder: 'pdfs',
+  },
+}
+
+function extensionOf(name) {
+  return name.split('.').pop()?.toLowerCase() || ''
+}
+
+async function validateFileSignature(file, kind) {
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer())
+  if (kind === 'pdfs') {
+    return bytes.length >= 5
+      && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44
+      && bytes[3] === 0x46 && bytes[4] === 0x2d
+  }
+  const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff
+  const png = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+  const webp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  return jpeg || png || webp
+}
+
+export async function uploadLibroArchivo(kind, file) {
+  const rule = STORAGE_RULES[kind]
+  if (!rule) throw new Error('Tipo de archivo no permitido')
+  const extension = extensionOf(file.name)
+  if (!rule.extensions.includes(extension) || !rule.mimeTypes.includes(file.type)) {
+    throw new Error(kind === 'pdfs' ? 'El archivo debe ser un PDF válido' : 'La portada debe ser JPG, PNG o WebP')
+  }
+  if (file.size <= 0 || file.size > rule.maxBytes) {
+    throw new Error(`El archivo supera el límite de ${rule.maxBytes / 1024 / 1024} MB`)
+  }
+  if (!await validateFileSignature(file, kind)) {
+    throw new Error('El contenido del archivo no coincide con su tipo')
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Sesión no válida')
+  const { data: isSuperadmin, error: superadminError } = await supabase.rpc('es_superadministrador')
+  if (superadminError) throw superadminError
+  if (!isSuperadmin) throw new Error('Solo el superadministrador puede subir archivos')
+  if (file.name.includes('/') || file.name.includes('\\') || file.name.startsWith('.') || file.name.length > 180) {
+    throw new Error('El nombre del archivo no es válido')
+  }
+  const path = `${kind}/${file.name}`
   const { error } = await supabase.storage
     .from('libros')
-    .upload(path, file, { upsert: true, contentType: file.type })
-  if (error) throw error
+    .upload(path, file, {
+      upsert: false,
+      contentType: file.type,
+      cacheControl: '3600',
+    })
+  if (error) {
+    if (error.statusCode === '409' || /already exists|duplicate/i.test(error.message)) {
+      throw new Error(`Ya existe un archivo llamado "${file.name}"`)
+    }
+    throw error
+  }
   return path
 }
 
-export async function listStorageFiles(folder) {
-  const { data, error } = await supabase.storage
-    .from('libros')
-    .list(folder, { sortBy: { column: 'name', order: 'asc' } })
+export async function deleteLibroArchivo(path) {
+  if (!/^(portada|pdfs)\/[^/]+$/.test(path)) {
+    throw new Error('Ruta de archivo no válida')
+  }
+  const { data: isSuperadmin, error: superadminError } = await supabase.rpc('es_superadministrador')
+  if (superadminError) throw superadminError
+  if (!isSuperadmin) throw new Error('Solo el superadministrador puede eliminar archivos')
+  const { data, error } = await supabase.storage.from('libros').remove([path])
   if (error) throw error
-  return (data || []).filter(f => f.name !== '.emptyFolderPlaceholder')
+  if (!data?.length) throw new Error('No se pudo eliminar el archivo')
+}
+
+export async function listStorageFiles(kind) {
+  const rule = STORAGE_RULES[kind]
+  if (!rule) throw new Error('Tipo de archivo no permitido')
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Sesión no válida')
+  const { data: isSuperadmin, error: superadminError } = await supabase.rpc('es_superadministrador')
+  if (superadminError) throw superadminError
+
+  const publishedFolder = kind
+  const { data: published, error: publishedError } = await supabase.storage
+    .from('libros')
+    .list(publishedFolder, { sortBy: { column: 'name', order: 'asc' } })
+  if (publishedError) throw publishedError
+  const files = (published || [])
+    .filter(file => file.name !== '.emptyFolderPlaceholder')
+    .map(file => ({ ...file, path: `${publishedFolder}/${file.name}`, staging: false }))
+
+  return { files, canUpload: Boolean(isSuperadmin) }
 }
 
 export async function createTokensLibro({ escuelaId, libroId, gradoId, cantidad, expiraEn }) {
-  const rows = Array.from({ length: cantidad }, () => ({
-    id: genTokenId('libro'),
-    estado: 'valido',
-    tipo: 'libro',
-    libro_id: libroId,
-    escuela_id: escuelaId,
-    grado_id: Number(gradoId),
-    expira_en: expiraEn || null,
-    usos_maximos: 1,
-  }))
-  const { data, error } = await supabase.from('tokens').insert(rows).select('id')
-  if (error) throw error
-  await logAdminAction({
-    accion: 'genero_tokens_libro',
-    entidad: 'token',
-    entidad_id: escuelaId,
-    payload: { cantidad, libro_id: libroId, escuela_id: escuelaId, grado_id: gradoId },
+  const { data, error } = await supabase.rpc('admin_crear_tokens_libro', {
+    p_escuela_id: escuelaId,
+    p_libro_id: libroId,
+    p_grado_id: Number(gradoId),
+    p_cantidad: Number(cantidad),
+    p_expira_en: expiraEn || null,
   })
-  return data.map(t => t.id)
+  if (error) throw error
+  return data
 }
 
 export async function createTokenesDocente({ escuelaId, emails, expiraEn }) {
-  const rows = emails.map(email => ({
-    id: genTokenId('docente'),
-    estado: 'valido',
-    tipo: 'docente',
-    escuela_id: escuelaId,
-    email_autorizado: email.trim().toLowerCase(),
-    expira_en: expiraEn || null,
-    usos_maximos: 1,
-  }))
-  const { data, error } = await supabase.from('tokens').insert(rows).select('id')
-  if (error) throw error
-  await logAdminAction({
-    accion: 'genero_tokens_docente',
-    entidad: 'token',
-    entidad_id: escuelaId,
-    payload: { cantidad: emails.length, escuela_id: escuelaId },
+  const { data, error } = await supabase.rpc('admin_crear_tokens_docente', {
+    p_escuela_id: escuelaId,
+    p_emails: emails.map(email => email.trim().toLowerCase()),
+    p_expira_en: expiraEn || null,
   })
-  return data.map(t => t.id)
+  if (error) throw error
+  return data
 }
 
 export async function revocarToken(tokenId) {
-  const { error } = await supabase.from('tokens').update({ estado: 'revocado' }).eq('id', tokenId)
-  if (error) throw error
-  await logAdminAction({ accion: 'revoco_token', entidad: 'token', entidad_id: tokenId })
+  return solicitarAccionSensible('revocar_token', { token_id: tokenId })
 }
 
 export async function deleteActividad(id) {
   const { error } = await supabase.from('actividades').delete().eq('id', id)
   if (error) throw error
-  await logAdminAction({ accion: 'elimino_actividad', entidad: 'actividad', entidad_id: id })
 }
 
 // ─── Usuarios ────────────────────────────────────────────────────────────────
@@ -475,9 +512,22 @@ export async function getUsuarios({ q = '', rol = '', escuelaId = '', offset = 0
 }
 
 export async function cambiarRolUsuario(id, nuevoRol) {
-  const { error } = await supabase.from('profiles').update({ rol: nuevoRol }).eq('id', id)
+  const { data, error } = await supabase.rpc('admin_cambiar_rol_usuario', {
+    p_usuario_id: id,
+    p_rol: nuevoRol,
+  })
   if (error) throw error
-  await logAdminAction({ accion: 'cambio_rol', entidad: 'usuario', entidad_id: id, payload: { rol: nuevoRol } })
+  if (!data?.ok) {
+    const mensajes = {
+      rol_invalido: 'El rol seleccionado no es válido.',
+      usuario_no_encontrado: 'El usuario ya no existe.',
+      rol_sin_cambios: 'El usuario ya tiene ese rol.',
+      no_puedes_cambiar_tu_rol: 'No puedes modificar tu propio rol.',
+      ultimo_admin: 'No se puede quitar el rol al último administrador.',
+    }
+    throw new Error(mensajes[data?.motivo] || 'No se pudo cambiar el rol')
+  }
+  return data
 }
 
 // ─── Logs ────────────────────────────────────────────────────────────────────

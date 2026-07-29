@@ -135,6 +135,7 @@ export default function AdminLibros() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
   const [error, setError] = useState('')
+  const [mensaje, setMensaje] = useState('')
 
   useEffect(() => { getGrados().then(setGrados).catch(() => {}) }, [])
 
@@ -164,8 +165,12 @@ export default function AdminLibros() {
 
   async function handleToggle(id, activo) {
     try {
-      await toggleLibroActivo(id, !activo)
-      setItems(prev => prev.map(i => i.id === id ? { ...i, activo: !activo } : i))
+      const resultado = await toggleLibroActivo(id, !activo)
+      if (resultado?.pendiente) {
+        setMensaje('La desactivación quedó pendiente de aprobación MFA.')
+      } else {
+        setItems(prev => prev.map(i => i.id === id ? { ...i, activo: !activo } : i))
+      }
       setConfirmToggle(null)
     } catch (e) { setError(e.message) }
   }
@@ -213,6 +218,7 @@ export default function AdminLibros() {
         </div>
 
         {error && <div style={{ background: C.dangerLight, color: C.danger, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
+        {mensaje && <div style={{ background: C.successLight, color: C.success, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{mensaje}</div>}
 
         <div style={{ ...S.card, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -267,7 +273,10 @@ export default function AdminLibros() {
         <ModalCrear
           grados={grados}
           onClose={() => setModal(false)}
-          onSave={async form => { await createLibro(form); load() }}
+          onSave={async form => {
+            const resultado = await createLibro(form)
+            if (resultado?.pendiente) setMensaje('La creación del libro quedó pendiente de aprobación.')
+          }}
         />
       )}
 

@@ -29,13 +29,19 @@ export default function Inicio() {
   const [tokenInput, setTokenInput] = useState('')
   const [activando, setActivando] = useState(false)
   const [errorActivacion, setErrorActivacion] = useState(null)
+  const [librosOcultos, setLibrosOcultos] = useState([])
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       setUsuario(user)
       if (user) {
-        await Promise.all([cargarLibros(user.id), cargarClases(user.id), cargarPerfil(user.id)])
+        try {
+          setLibrosOcultos(JSON.parse(localStorage.getItem(`libelula_libros_ocultos_${user.id}`) || '[]'))
+        } catch {
+          setLibrosOcultos([])
+        }
+        await Promise.all([cargarLibros(), cargarClases(user.id), cargarPerfil(user.id)])
       }
       setCargando(false)
     }
@@ -53,9 +59,9 @@ export default function Inicio() {
     } catch (err) { console.error('cargarPerfil:', err) }
   }
 
-  async function cargarLibros(userId) {
+  async function cargarLibros() {
     try {
-      const librosData = await getLibrosActivados(userId)
+      const librosData = await getLibrosActivados()
       const librosConPortadas = await Promise.all(
         librosData.map(async libro => {
           const portadaUrl = libro.portada_url ? await getPortadaUrl(libro.portada_url) : null
@@ -64,6 +70,16 @@ export default function Inicio() {
       )
       setLibros(librosConPortadas)
     } catch (err) { console.error('cargarLibros:', err) }
+  }
+
+  function ocultarLibro(libroId) {
+    setLibrosOcultos(prev => {
+      const next = [...new Set([...prev, libroId])]
+      if (usuario?.id) {
+        localStorage.setItem(`libelula_libros_ocultos_${usuario.id}`, JSON.stringify(next))
+      }
+      return next
+    })
   }
 
   async function cargarClases(userId) {
@@ -78,13 +94,14 @@ export default function Inicio() {
     setActivando(true)
     setErrorActivacion(null)
     try {
-      const result = await activarTokenLibro(tokenInput.trim(), usuario.id)
+      const result = await activarTokenLibro(tokenInput.trim())
       if (result.ok) {
-        await cargarLibros(usuario.id)
+        await cargarLibros()
         setModalLibro(null)
         setTokenInput('')
       } else {
         const mensajes = {
+          demasiados_intentos: 'Demasiados intentos. Espera una hora antes de probar otro código.',
           ya_tienes_libro: 'Ya tienes este libro activado.',
           token_invalido: 'Código inválido. Revísalo e intenta de nuevo.',
           token_desactivado: 'Este código ya no está disponible.',
@@ -100,7 +117,8 @@ export default function Inicio() {
     }
   }
 
-  const librosActivadosIds = new Set(libros.map(l => l.id))
+  const librosVisibles = libros.filter(l => !librosOcultos.includes(l.id))
+  const librosActivadosIds = new Set(libros.filter(l => l.disponible).map(l => l.id))
   const nombreUsuario = usuario?.user_metadata?.nombre || 'Estudiante'
   const pad = isMobile ? '20px 16px' : '28px 40px'
 
@@ -119,7 +137,7 @@ export default function Inicio() {
             <div style={{ fontSize: 14, opacity: 0.8 }}>¡Hola de nuevo! 👋</div>
             <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 800, overflowWrap: 'anywhere' }}>{nombreUsuario}</div>
             <div style={{ fontSize: 13, opacity: 0.7, marginTop: 4 }}>
-              {libros.length > 0 ? `${libros.length} libro${libros.length > 1 ? 's' : ''} activado${libros.length > 1 ? 's' : ''}` : 'Activa tu primer libro'}
+              {librosVisibles.length > 0 ? `${librosVisibles.length} libro${librosVisibles.length > 1 ? 's' : ''} activado${librosVisibles.length > 1 ? 's' : ''}` : 'Activa tu primer libro'}
             </div>
             {(perfil?.grados?.nombre || perfil?.escuelas?.nombre) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
@@ -268,7 +286,7 @@ export default function Inicio() {
             <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
               <Spinner />
             </div>
-          ) : libros.length === 0 ? (
+          ) : librosVisibles.length === 0 ? (
             <div style={{ background: '#fff', borderRadius: 16, padding: isMobile ? 36 : 60, textAlign: 'center', border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 52, marginBottom: 12 }}>📖</div>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: C.text, marginBottom: 8 }}>No tienes libros activados</h3>
@@ -284,18 +302,19 @@ export default function Inicio() {
               gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(308px, 1fr))',
               gap: isMobile ? 12 : 20,
             }}>
-              {libros.map((libro, i) => {
+              {librosVisibles.map((libro, i) => {
                 const [c1, c2] = BOOK_COLORS[i % BOOK_COLORS.length]
+                const disponible = libro.disponible
                 return (
                   <div key={libro.id}
-                    onClick={() => navigate(`/libro/${libro.id}`)}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)' }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)' }}
+                    onClick={disponible ? () => navigate(`/libro/${libro.id}`) : undefined}
+                    onMouseEnter={disponible ? e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)' } : undefined}
+                    onMouseLeave={disponible ? e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)' } : undefined}
                     style={{
-                      background: '#fff', borderRadius: 16, overflow: 'hidden', cursor: 'pointer',
+                      background: '#fff', borderRadius: 16, overflow: 'hidden', cursor: disponible ? 'pointer' : 'default',
                       border: `1px solid ${C.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                       transition: 'transform 0.2s, box-shadow 0.2s',
-                      display: isMobile ? 'flex' : 'block',
+                      display: isMobile ? 'flex' : 'block', opacity: disponible ? 1 : 0.72,
                     }}>
                     <div style={{
                       width: isMobile ? 112 : '100%', height: isMobile ? 112 : 182,
@@ -315,6 +334,24 @@ export default function Inicio() {
                     <div style={{ padding: isMobile ? '12px 16px' : 16, flex: 1 }}>
                       <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>{libro.titulo}</div>
                       <div style={{ fontSize: 13, color: C.textLight, lineHeight: 1.4 }}>{libro.descripcion}</div>
+                      {!disponible && (
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: C.danger, marginBottom: 8 }}>
+                            Libro deshabilitado por la entidad
+                          </div>
+                          <button
+                            type="button"
+                            onClick={e => { e.stopPropagation(); ocultarLibro(libro.id) }}
+                            style={{
+                              border: `1px solid ${C.border}`, background: '#fff', color: C.textLight,
+                              borderRadius: 8, padding: '6px 10px', fontSize: 11, fontWeight: 700,
+                              cursor: 'pointer', fontFamily: 'Nunito',
+                            }}
+                          >
+                            Ocultar
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )

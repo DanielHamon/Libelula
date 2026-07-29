@@ -1,11 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { useInactivityTimeout } from './hooks/useInactivityTimeout'
 import Activar from './pages/Activar'
 import Login from './pages/Login'
 import Inicio from './pages/Inicio'
 import Libro from './pages/Libro'
 import Unidad from './pages/Unidad'
-import Actividad from './pages/Actividad'
 import UnirseClase from './pages/UnirseClase'
 import PanelDocente from './pages/PanelDocente'
 import NuevaClase from './pages/NuevaClase'
@@ -23,6 +22,13 @@ import AdminLogs from './pages/admin/AdminLogs'
 import AdminEscuelaDetalle from './pages/admin/AdminEscuelaDetalle'
 import AdminLibroDetalle from './pages/admin/AdminLibroDetalle'
 import AdminUsuarios from './pages/admin/AdminUsuarios'
+import AdminAprobaciones from './pages/admin/AdminAprobaciones'
+import SeguridadMFA from './pages/SeguridadMFA'
+
+function ActividadLegacyRedirect() {
+  const { libroId, unidadId } = useParams()
+  return <Navigate to={`/libro/${libroId}/unidad/${unidadId}`} replace />
+}
 
 function AppRoutes() {
   const { mostrarAviso, segundosRestantes, extenderSesion, cerrarSesionManual } = useInactivityTimeout()
@@ -85,10 +91,11 @@ function AppRoutes() {
       <Routes>
         <Route path="/activar" element={<Activar />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/seguridad/mfa" element={<SeguridadMFA />} />
         <Route path="/inicio" element={<RutaProtegida><Inicio /></RutaProtegida>} />
         <Route path="/libro/:libroId" element={<RutaProtegida><Libro /></RutaProtegida>} />
         <Route path="/libro/:libroId/unidad/:unidadId" element={<RutaProtegida><Unidad /></RutaProtegida>} />
-        <Route path="/libro/:libroId/unidad/:unidadId/actividad/:actividadId" element={<RutaProtegida><Actividad /></RutaProtegida>} />
+        <Route path="/libro/:libroId/unidad/:unidadId/actividad/:actividadId" element={<RutaProtegida><ActividadLegacyRedirect /></RutaProtegida>} />
         <Route path="/unirse-clase" element={<RutaProtegida><UnirseClase /></RutaProtegida>} />
         <Route element={<RutaProtegidaDocente><DocenteLayout /></RutaProtegidaDocente>}>
           <Route path="/panel-docente" element={<PanelDocente />} />
@@ -104,6 +111,7 @@ function AppRoutes() {
         <Route path="/admin/libros/:id" element={<RutaProtegidaAdmin><AdminLibroDetalle /></RutaProtegidaAdmin>} />
         <Route path="/admin/tokens" element={<RutaProtegidaAdmin><AdminTokens /></RutaProtegidaAdmin>} />
         <Route path="/admin/usuarios" element={<RutaProtegidaAdmin><AdminUsuarios /></RutaProtegidaAdmin>} />
+        <Route path="/admin/aprobaciones" element={<RutaProtegidaAdmin><AdminAprobaciones /></RutaProtegidaAdmin>} />
         <Route path="/admin/logs" element={<RutaProtegidaAdmin><AdminLogs /></RutaProtegidaAdmin>} />
 
         <Route path="*" element={<Navigate to="/login" replace />} />

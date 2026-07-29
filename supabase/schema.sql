@@ -1,6 +1,10 @@
 -- ============================================================
 -- IAbooks — Supabase PostgreSQL Schema (v4, multi-tenant)
 -- Ejecutar completo en: Supabase Dashboard > SQL Editor
+-- IMPORTANTE: después de este esquema base se debe ejecutar
+-- supabase/security_phase1.sql y luego supabase/security_phase2.sql. Esos
+-- archivos reemplazan las políticas y RPC heredadas por sus versiones
+-- endurecidas para producción.
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
