@@ -1924,6 +1924,7 @@ function ModalActividad({ orden, onClose, onSave, primaryColor = C.primary }) {
   const [campos, setCampos] = useState(camposInicialesPorTipo('sopaLetras'))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [previewMode, setPreviewMode] = useState('mobile')
   const isCompact = useWindowWidth() < 980
 
   function onTipoChange(e) {
@@ -1946,8 +1947,9 @@ function ModalActividad({ orden, onClose, onSave, primaryColor = C.primary }) {
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: isCompact ? 8 : 20 }}>
+    <div className="activity-editor-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: isCompact ? 8 : 20 }}>
       <form
+        className="activity-editor-modal"
         onSubmit={submit}
         style={{
           ...S.card,
@@ -1974,7 +1976,7 @@ function ModalActividad({ orden, onClose, onSave, primaryColor = C.primary }) {
           flex: 1,
           overflowY: isCompact ? 'auto' : 'hidden',
         }}>
-          <section style={{ padding: isCompact ? 18 : 24, overflowY: isCompact ? 'visible' : 'auto', minWidth: 0 }}>
+          <section className="activity-editor-config" style={{ padding: isCompact ? 18 : 24, overflowY: isCompact ? 'visible' : 'auto', minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
               <span style={{ width: 26, height: 26, borderRadius: '50%', background: C.primary, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>1</span>
               <h4 style={{ margin: 0, fontSize: 15, color: C.text }}>Configuración</h4>
@@ -1989,7 +1991,7 @@ function ModalActividad({ orden, onClose, onSave, primaryColor = C.primary }) {
             {error && <div style={{ background: C.dangerLight, color: C.danger, borderRadius: 8, padding: '10px 14px', marginTop: 16, fontSize: 13, fontWeight: 600 }}>{error}</div>}
           </section>
 
-          <section style={{ padding: isCompact ? 18 : 24, background: '#F1F5F9', borderLeft: isCompact ? 'none' : `1px solid ${C.border}`, borderTop: isCompact ? `1px solid ${C.border}` : 'none', overflowY: isCompact ? 'visible' : 'auto', minWidth: 0 }}>
+          <section className="activity-preview-section" style={{ padding: isCompact ? 18 : 24, background: '#F1F5F9', borderLeft: isCompact ? 'none' : `1px solid ${C.border}`, borderTop: isCompact ? `1px solid ${C.border}` : 'none', overflowY: isCompact ? 'visible' : 'auto', minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 26, height: 26, borderRadius: '50%', background: primaryColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>2</span>
@@ -1997,22 +1999,29 @@ function ModalActividad({ orden, onClose, onSave, primaryColor = C.primary }) {
               </div>
               <span style={{ ...badge(C.success, C.successLight), fontSize: 10 }}>● En tiempo real</span>
             </div>
-            <div style={{ pointerEvents: 'none', userSelect: 'none' }}>
-              <ActivityCard
-                key={tipo}
-                act={previewActivity}
-                numero={orden}
-                isMobile={isCompact}
-                completada={false}
-                onComplete={() => {}}
-                snapMode={false}
-                primaryColor={primaryColor}
-              />
+            <div className="activity-preview-toolbar" role="group" aria-label="Tamaño de la vista previa">
+              <button type="button" className={previewMode === 'mobile' ? 'is-active' : ''} onClick={() => setPreviewMode('mobile')}>📱 Móvil</button>
+              <button type="button" className={previewMode === 'desktop' ? 'is-active' : ''} onClick={() => setPreviewMode('desktop')}>🖥️ Escritorio</button>
+            </div>
+            <div className="activity-preview-stage">
+              <div className={`activity-preview-device ${previewMode === 'mobile' ? 'is-mobile' : 'is-desktop'}`} style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                {previewMode === 'mobile' && <div className="activity-preview-phone-label">Vista de 390 px</div>}
+                <ActivityCard
+                  key={`${tipo}-${previewMode}`}
+                  act={previewActivity}
+                  numero={orden}
+                  isMobile={previewMode === 'mobile'}
+                  completada={false}
+                  onComplete={() => {}}
+                  snapMode={false}
+                  primaryColor={primaryColor}
+                />
+              </div>
             </div>
           </section>
         </div>
 
-        <div style={{ padding: isCompact ? '14px 18px' : '16px 24px', borderTop: `1px solid ${C.border}`, background: '#fff', flexShrink: 0 }}>
+        <div className="activity-editor-footer" style={{ padding: isCompact ? '14px 18px' : '16px 24px', borderTop: `1px solid ${C.border}`, background: '#fff', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
             <button type="button" onClick={onClose} style={{ ...btnOutline(C.textLight), width: isCompact ? 120 : 140, justifyContent: 'center' }}>Cancelar</button>
             <button type="submit" disabled={loading} style={{ ...btn(C.primary), width: isCompact ? 150 : 180, justifyContent: 'center' }}>{loading ? 'Guardando…' : 'Crear actividad'}</button>
@@ -2029,6 +2038,7 @@ function ModalEditarActividad({ actividad, unidades, primaryColor = C.primary, o
   const [unidadId, setUnidadId] = useState(actividad.unidad_id)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [previewMode, setPreviewMode] = useState('mobile')
   const isCompact = useWindowWidth() < 980
 
   async function submit(e) {
@@ -2050,8 +2060,8 @@ function ModalEditarActividad({ actividad, unidades, primaryColor = C.primary, o
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: isCompact ? 8 : 20 }}>
-      <form onSubmit={submit} style={{ ...S.card, width: 'min(1420px, 100%)', height: isCompact ? 'calc(100dvh - 16px)' : 'min(900px, calc(100dvh - 40px))', margin: 'auto', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    <div className="activity-editor-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.58)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: isCompact ? 8 : 20 }}>
+      <form className="activity-editor-modal" onSubmit={submit} style={{ ...S.card, width: 'min(1420px, 100%)', height: isCompact ? 'calc(100dvh - 16px)' : 'min(900px, calc(100dvh - 40px))', margin: 'auto', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: isCompact ? '16px 18px' : '18px 24px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexShrink: 0 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: C.text }}>Editar actividad</h3>
@@ -2061,7 +2071,7 @@ function ModalEditarActividad({ actividad, unidades, primaryColor = C.primary, o
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: isCompact ? '1fr' : 'minmax(360px, 0.82fr) minmax(520px, 1.35fr)', minHeight: 0, flex: 1, overflowY: isCompact ? 'auto' : 'hidden' }}>
-          <section style={{ padding: isCompact ? 18 : 24, overflowY: isCompact ? 'visible' : 'auto', minWidth: 0 }}>
+          <section className="activity-editor-config" style={{ padding: isCompact ? 18 : 24, overflowY: isCompact ? 'visible' : 'auto', minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
               <span style={{ width: 26, height: 26, borderRadius: '50%', background: C.primary, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>1</span>
               <h4 style={{ margin: 0, fontSize: 15, color: C.text }}>Configuración</h4>
@@ -2078,7 +2088,7 @@ function ModalEditarActividad({ actividad, unidades, primaryColor = C.primary, o
             {error && <div style={{ background: C.dangerLight, color: C.danger, borderRadius: 8, padding: '10px 14px', marginTop: 16, fontSize: 13, fontWeight: 600 }}>{error}</div>}
           </section>
 
-          <section style={{ padding: isCompact ? 18 : 24, background: '#F1F5F9', borderLeft: isCompact ? 'none' : `1px solid ${C.border}`, borderTop: isCompact ? `1px solid ${C.border}` : 'none', overflowY: isCompact ? 'visible' : 'auto', minWidth: 0 }}>
+          <section className="activity-preview-section" style={{ padding: isCompact ? 18 : 24, background: '#F1F5F9', borderLeft: isCompact ? 'none' : `1px solid ${C.border}`, borderTop: isCompact ? `1px solid ${C.border}` : 'none', overflowY: isCompact ? 'visible' : 'auto', minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 18 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ width: 26, height: 26, borderRadius: '50%', background: primaryColor, color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12 }}>2</span>
@@ -2086,13 +2096,20 @@ function ModalEditarActividad({ actividad, unidades, primaryColor = C.primary, o
               </div>
               <span style={{ ...badge(C.success, C.successLight), fontSize: 10 }}>● En tiempo real</span>
             </div>
-            <div style={{ pointerEvents: 'none', userSelect: 'none' }}>
-              <ActivityCard key={actividad.tipo} act={previewActivity} numero={actividad.orden} isMobile={isCompact} completada={false} onComplete={() => {}} snapMode={false} primaryColor={primaryColor} />
+            <div className="activity-preview-toolbar" role="group" aria-label="Tamaño de la vista previa">
+              <button type="button" className={previewMode === 'mobile' ? 'is-active' : ''} onClick={() => setPreviewMode('mobile')}>📱 Móvil</button>
+              <button type="button" className={previewMode === 'desktop' ? 'is-active' : ''} onClick={() => setPreviewMode('desktop')}>🖥️ Escritorio</button>
+            </div>
+            <div className="activity-preview-stage">
+              <div className={`activity-preview-device ${previewMode === 'mobile' ? 'is-mobile' : 'is-desktop'}`} style={{ pointerEvents: 'none', userSelect: 'none' }}>
+                {previewMode === 'mobile' && <div className="activity-preview-phone-label">Vista de 390 px</div>}
+                <ActivityCard key={`${actividad.tipo}-${previewMode}`} act={previewActivity} numero={actividad.orden} isMobile={previewMode === 'mobile'} completada={false} onComplete={() => {}} snapMode={false} primaryColor={primaryColor} />
+              </div>
             </div>
           </section>
         </div>
 
-        <div style={{ padding: isCompact ? '14px 18px' : '16px 24px', borderTop: `1px solid ${C.border}`, background: '#fff', flexShrink: 0 }}>
+        <div className="activity-editor-footer" style={{ padding: isCompact ? '14px 18px' : '16px 24px', borderTop: `1px solid ${C.border}`, background: '#fff', flexShrink: 0 }}>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button type="button" onClick={onClose} style={{ ...btnOutline(C.textLight), width: isCompact ? 120 : 140, justifyContent: 'center' }}>Cancelar</button>
             <button type="submit" disabled={loading} style={{ ...btn(C.primary), width: isCompact ? 150 : 180, justifyContent: 'center' }}>{loading ? 'Guardando…' : 'Guardar cambios'}</button>
@@ -2247,15 +2264,16 @@ function UnidadRow({ unidad, unidades, activitiesVersion, index, total, onMover,
     <div style={{ border: `1px solid ${C.border}`, borderRadius: 10, marginBottom: 8, overflow: 'hidden' }}>
       {/* Header de la unidad */}
       <div
+        className="admin-unit-header"
         style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: C.white, cursor: editando ? 'default' : 'pointer', userSelect: 'none' }}
         onClick={!editando ? toggleOpen : undefined}
       >
-        <span style={{ fontSize: 13, fontWeight: 700, color: C.textLight, width: 24, textAlign: 'center', flexShrink: 0 }}>{unidad.orden}</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <span className="admin-unit-order" style={{ fontSize: 13, fontWeight: 700, color: C.textLight, width: 24, textAlign: 'center', flexShrink: 0 }}>{unidad.orden}</span>
+        <div className="admin-unit-copy" style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, fontSize: 14, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{unidad.titulo}</div>
           {unidad.subtitulo && <div style={{ fontSize: 12, color: C.textLight, marginTop: 1 }}>{unidad.subtitulo}</div>}
         </div>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+        <div className="admin-unit-actions" style={{ display: 'flex', gap: 6, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
           <button onClick={() => onMover(index, -1)} disabled={index === 0} style={btnOutline(C.textLight, 'sm')}>↑</button>
           <button onClick={() => onMover(index, 1)} disabled={index === total - 1} style={btnOutline(C.textLight, 'sm')}>↓</button>
           <button onClick={() => { setEditando(e => !e); setOpen(false); setError('') }} style={btnOutline(C.primary, 'sm')}>
@@ -2263,7 +2281,7 @@ function UnidadRow({ unidad, unidades, activitiesVersion, index, total, onMover,
           </button>
           <button onClick={() => setConfirmDelete(true)} style={btnOutline(C.danger, 'sm')}>Borrar</button>
         </div>
-        {!editando && <span style={{ fontSize: 18, color: C.textLight, flexShrink: 0 }}>{open ? '▲' : '▼'}</span>}
+        {!editando && <span className="admin-unit-toggle" style={{ fontSize: 18, color: C.textLight, flexShrink: 0 }}>{open ? '▲' : '▼'}</span>}
       </div>
 
       {/* Formulario de edición */}
@@ -2299,7 +2317,7 @@ function UnidadRow({ unidad, unidades, activitiesVersion, index, total, onMover,
 
       {/* Actividades */}
       {open && !editando && (
-        <div style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: '12px 16px' }}>
+        <div className="admin-activity-list" style={{ background: C.bg, borderTop: `1px solid ${C.border}`, padding: '12px 16px' }}>
           {actividades === null ? (
             <p style={{ fontSize: 13, color: C.textLight }}>Cargando…</p>
           ) : actividades.length === 0 ? (
@@ -2498,7 +2516,7 @@ export default function AdminLibroDetalle() {
 
   return (
     <AdminLayout>
-      <div style={{ padding: '32px 40px', maxWidth: 860 }}>
+      <div className="admin-page admin-book-editor" style={{ padding: '32px 40px', maxWidth: 860 }}>
         {/* Breadcrumb */}
         <div style={{ fontSize: 13, color: C.textLight, marginBottom: 20 }}>
           <Link to="/admin/libros" style={{ color: C.primary, textDecoration: 'none', fontWeight: 600 }}>Libros</Link>
@@ -2511,7 +2529,7 @@ export default function AdminLibroDetalle() {
 
         {/* Metadatos */}
         <div style={{ ...S.card, padding: 24, marginBottom: 28 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: editando ? 20 : 0 }}>
+          <div className="admin-page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: editando ? 20 : 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <span style={{ fontSize: 32 }}>{libro.emoji || '📖'}</span>
               <div>

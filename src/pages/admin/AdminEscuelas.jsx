@@ -102,8 +102,8 @@ export default function AdminEscuelas() {
 
   return (
     <AdminLayout>
-      <div style={{ padding: '32px 40px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="admin-page" style={{ padding: '32px 40px' }}>
+        <div className="admin-page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: 0 }}>Escuelas</h1>
             <p style={{ fontSize: 13, color: C.textLight, margin: '4px 0 0' }}>{total} escuela{total !== 1 ? 's' : ''} registradas</p>
@@ -111,7 +111,7 @@ export default function AdminEscuelas() {
           <button onClick={() => setModal(true)} style={btn(C.primary)}>+ Nueva escuela</button>
         </div>
 
-        <div style={{ marginBottom: 16 }}>
+        <div className="admin-filters" style={{ marginBottom: 16 }}>
           <input
             style={{ ...S.input, maxWidth: 320 }}
             value={q}
@@ -123,7 +123,7 @@ export default function AdminEscuelas() {
         {error && <div style={{ background: C.dangerLight, color: C.danger, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
         {mensaje && <div style={{ background: C.successLight, color: C.success, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{mensaje}</div>}
 
-        <div style={{ ...S.card, overflow: 'hidden' }}>
+        <div className="admin-table-card" style={{ ...S.card, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>

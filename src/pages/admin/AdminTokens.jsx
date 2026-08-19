@@ -71,7 +71,7 @@ function SolicitudCreada({ id, onClose }) {
         <p style={{ color: C.textLight, fontSize: 14, lineHeight: 1.5 }}>
           Los tokens se generarán después de la aprobación del superadministrador con MFA.
         </p>
-        <code style={{ display: 'block', marginBottom: 18, fontSize: 12 }}>{id}</code>
+        <code style={{ display: 'block', marginBottom: 18, fontSize: 12, overflowWrap: 'anywhere' }}>{id}</code>
         <button onClick={onClose} style={btn(C.primary)}>Cerrar</button>
       </div>
     </div>
@@ -119,7 +119,7 @@ function ModalLibro({ escuelas, libros, grados, onClose, onSave }) {
       <div style={{ ...S.card, width: 520, padding: 28 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: C.success, marginBottom: 4 }}>✅ {generados.length} token{generados.length !== 1 ? 's' : ''} generado{generados.length !== 1 ? 's' : ''}</div>
         <p style={{ fontSize: 13, color: C.textLight, marginBottom: 16 }}>Copia los tokens y compártelos con los estudiantes.</p>
-        <div style={{ background: C.bg, borderRadius: 10, padding: 14, fontFamily: 'monospace', fontSize: 14, lineHeight: 1.8, maxHeight: 240, overflowY: 'auto', marginBottom: 16 }}>
+        <div style={{ background: C.bg, borderRadius: 10, padding: 14, fontFamily: 'monospace', fontSize: 14, lineHeight: 1.8, maxHeight: 240, overflowY: 'auto', marginBottom: 16, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
           {generados.join('\n')}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -206,7 +206,7 @@ function ModalDocente({ escuelas, onClose, onSave }) {
       <div style={{ ...S.card, width: 520, padding: 28 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: C.success, marginBottom: 4 }}>✅ {generados.length} token{generados.length !== 1 ? 's' : ''} generado{generados.length !== 1 ? 's' : ''}</div>
         <p style={{ fontSize: 13, color: C.textLight, marginBottom: 16 }}>Envía cada token al docente correspondiente.</p>
-        <div style={{ background: C.bg, borderRadius: 10, padding: 14, fontFamily: 'monospace', fontSize: 14, lineHeight: 1.8, maxHeight: 240, overflowY: 'auto', marginBottom: 16 }}>
+        <div style={{ background: C.bg, borderRadius: 10, padding: 14, fontFamily: 'monospace', fontSize: 14, lineHeight: 1.8, maxHeight: 240, overflowY: 'auto', marginBottom: 16, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
           {generados.join('\n')}
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -331,13 +331,13 @@ export default function AdminTokens() {
 
   return (
     <AdminLayout>
-      <div style={{ padding: '32px 40px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="admin-page" style={{ padding: '32px 40px' }}>
+        <div className="admin-page-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: 0 }}>Tokens</h1>
             <p style={{ fontSize: 13, color: C.textLight, margin: '4px 0 0' }}>{total} token{total !== 1 ? 's' : ''}</p>
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div className="admin-header-actions" style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => descargarCSV(items)} disabled={items.length === 0} style={btnOutline(C.success)}>Exportar CSV</button>
             <button onClick={() => setModal('docente')} style={btnOutline(C.primary)}>+ Docente</button>
             <button onClick={() => setModal('libro')} style={btn(C.primary)}>+ Libro</button>
@@ -359,7 +359,7 @@ export default function AdminTokens() {
         </div>
 
         {/* Filtros */}
-        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="admin-filters" style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             style={{ ...S.input, maxWidth: 220 }}
             value={q}
@@ -412,7 +412,7 @@ export default function AdminTokens() {
         {error && <div style={{ background: C.dangerLight, color: C.danger, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{error}</div>}
         {mensaje && <div style={{ background: C.successLight, color: C.success, borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, fontWeight: 600 }}>{mensaje}</div>}
 
-        <div style={{ ...S.card, overflow: 'auto' }}>
+        <div className="admin-table-card" style={{ ...S.card, overflow: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
             <thead>
               <tr>
@@ -431,7 +431,7 @@ export default function AdminTokens() {
                 const ec = ESTADO_COLOR[estadoEfectivo] || ESTADO_COLOR.valido
                 return (
                   <tr key={item.id}>
-                    <td style={{ ...S.td, fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: C.primary }}>{item.id}</td>
+                    <td style={{ ...S.td, fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: C.primary, overflowWrap: 'anywhere' }}>{item.id}</td>
                     <td style={{ ...S.td, fontSize: 13 }}>{item.escuelas?.codigo || item.escuelas?.nombre || escuelasMap[item.escuela_id] || '—'}</td>
                     <td style={{ ...S.td, fontSize: 13, color: C.textLight }}>
                       {tab === 'libro' ? (item.grado_id ?? '—') : (item.email_autorizado || '—')}

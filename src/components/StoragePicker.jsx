@@ -69,8 +69,8 @@ export default function StoragePicker({ folder, accept, title, onSelect, onClose
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-      <div style={{ ...S.card, width: 520, maxHeight: '78vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+    <div className="storage-picker-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
+      <div className="storage-picker-panel" style={{ ...S.card, width: 520, maxHeight: '78vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
 
         <div style={{ padding: '18px 24px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: C.text }}>{title}</h3>
@@ -104,7 +104,7 @@ export default function StoragePicker({ folder, accept, title, onSelect, onClose
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {files.map(f => (
-                <div key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.white }}>
+                <div className="storage-picker-file" key={f.name} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: C.white }}>
                   <div style={{ width: 44, height: 44, borderRadius: 6, background: C.bg, overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {isImage
                       ? (previews[f.name]

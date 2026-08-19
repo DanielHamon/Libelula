@@ -419,7 +419,7 @@ export default function Activar() {
         <form onSubmit={handleVerificarCodigo}>
           <InputField
             label="Código del libro"
-            placeholder="Ej: LIBRO-ABC123"
+            placeholder="Ej: TL-8F3A…"
             value={codigo}
             onChange={e => { setCodigo(e.target.value.toUpperCase()); setError('') }}
             icon="🔑"

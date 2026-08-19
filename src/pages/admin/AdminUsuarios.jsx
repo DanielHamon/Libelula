@@ -82,13 +82,13 @@ export default function AdminUsuarios() {
 
   return (
     <AdminLayout>
-      <div style={{ padding: '32px 40px' }}>
+      <div className="admin-page" style={{ padding: '32px 40px' }}>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: C.text, margin: 0 }}>Usuarios</h1>
           <p style={{ fontSize: 13, color: C.textLight, margin: '4px 0 0' }}>{total} usuario{total !== 1 ? 's' : ''}</p>
         </div>
 
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="admin-filters" style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
           <input
             style={{ ...S.input, maxWidth: 280 }}
             value={q}
@@ -134,7 +134,7 @@ export default function AdminUsuarios() {
           </div>
         )}
 
-        <div style={{ ...S.card, overflow: 'auto' }}>
+        <div className="admin-table-card" style={{ ...S.card, overflow: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
             <thead>
               <tr>

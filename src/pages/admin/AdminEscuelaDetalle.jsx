@@ -90,7 +90,7 @@ export default function AdminEscuelaDetalle() {
 
   return (
     <AdminLayout>
-      <div style={{ padding: '32px 40px', maxWidth: 820 }}>
+      <div className="admin-page" style={{ padding: '32px 40px', maxWidth: 820 }}>
         {/* Breadcrumb */}
         <div style={{ fontSize: 13, color: C.textLight, marginBottom: 20 }}>
           <Link to="/admin/escuelas" style={{ color: C.primary, textDecoration: 'none', fontWeight: 600 }}>Escuelas</Link>
@@ -149,12 +149,12 @@ export default function AdminEscuelaDetalle() {
         )}
 
         {/* Libros asignados */}
-        <div style={{ ...S.card, overflow: 'hidden' }}>
+        <div className="admin-table-card" style={{ ...S.card, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>
               Libros asignados <span style={{ color: C.textLight, fontWeight: 400, fontSize: 13 }}>({librosAsignados.length})</span>
             </span>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <div className="admin-filters" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <select
                 style={{ ...S.input, width: 'auto', minWidth: 220, fontSize: 13, padding: '8px 12px' }}
                 value={libroSel}

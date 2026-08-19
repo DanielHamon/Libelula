@@ -44,7 +44,7 @@ export default function PanelAdmin() {
 
   return (
     <AdminLayout>
-      <div style={{ padding: '32px 40px', maxWidth: 900 }}>
+      <div className="admin-page admin-dashboard" style={{ padding: '32px 40px', maxWidth: 900 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: C.text, margin: '0 0 6px' }}>Dashboard</h1>
         <p style={{ fontSize: 14, color: C.textLight, margin: '0 0 28px' }}>Resumen del sistema Libelula</p>
 
@@ -54,7 +54,7 @@ export default function PanelAdmin() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
+        <div className="admin-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 32 }}>
           {STATS.map(s => (
             <div key={s.key} style={{ ...S.card, padding: 20, display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, background: s.color + '15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
@@ -70,7 +70,7 @@ export default function PanelAdmin() {
           ))}
         </div>
 
-        <div style={{ ...S.card, overflow: 'hidden' }}>
+        <div className="admin-table-card" style={{ ...S.card, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}` }}>
             <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Actividad reciente</span>
           </div>

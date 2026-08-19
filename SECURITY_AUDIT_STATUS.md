@@ -764,3 +764,34 @@ endurecimiento de ocho fases y su validación integral previa al despliegue.
   Requieren una decisión de datos del negocio antes de corregirse.
 - HSTS, CSP y las demás cabeceras nuevas deben comprobarse sobre la URL de
   producción después del próximo despliegue.
+
+## Fase 11 — Completada
+
+Objetivo: sustituir los tokens heredados de 24 bits por tokens con 128 bits de
+aleatoriedad criptográfica y preparar un esquema endurecido reproducible.
+
+El preflight confirmó que `admin_crear_tokens_libro` y
+`admin_crear_tokens_docente` todavía utilizaban seis caracteres hexadecimales
+derivados de `md5(random())`. Existían 34 tokens débiles en estado `valido`: 27
+utilizables y siete expirados. También había 51 activados y cuatro revocados.
+
+Se aplicó `supabase/security_phase11.sql` con autorización para invalidar todos
+los códigos de prueba heredados. Los 34 tokens débiles válidos quedaron
+revocados; los 51 activados se conservaron para auditoría e integridad de las
+FK. El inventario posterior contiene 51 activados históricos y 38 revocados.
+
+`security_phase11_verify.sql` devolvió sus doce indicadores en `true`:
+generadores endurecidos, 128 bits activos, helper interno instalado y cerrado a
+clientes, ejecución anónima bloqueada, APIs administrativas disponibles,
+restricción de formato activa, ningún token débil válido y ninguna generación
+heredada pendiente.
+
+Las pruebas funcionales fueron superadas: generación de tokens de libro y
+docente con prefijos correctos y 128 bits, activación válida y rechazo de la
+reutilización.
+
+El 19 de agosto de 2026 se generó con Supabase CLI 2.115.0 un dump de solo
+esquema del proyecto desplegado, limitado al esquema `public`, y se sustituyó
+`supabase/schema.sql` por ese catálogo canónico. El archivo no contiene filas
+de datos ni credenciales. Con este paso queda cerrada la reproducibilidad de la
+fase 11.

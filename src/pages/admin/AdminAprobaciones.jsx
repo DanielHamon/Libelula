@@ -73,7 +73,7 @@ export default function AdminAprobaciones() {
 
   return (
     <AdminLayout>
-      <div style={{ padding: '32px 40px', maxWidth: 1100 }}>
+      <div className="admin-page" style={{ padding: '32px 40px', maxWidth: 1100 }}>
         <div style={{ marginBottom: 22 }}>
           <h1 style={{ margin: 0, fontSize: 22, color: C.text }}>Aprobaciones sensibles</h1>
           <p style={{ margin: '5px 0 0', color: C.textLight, fontSize: 13 }}>
@@ -95,7 +95,7 @@ export default function AdminAprobaciones() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <div className="admin-filter-tabs" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {['pendiente', 'aprobada', 'rechazada'].map(value => (
             <button
               key={value}
@@ -107,7 +107,7 @@ export default function AdminAprobaciones() {
           ))}
         </div>
 
-        <div style={{ ...S.card, overflow: 'auto' }}>
+        <div className="admin-table-card" style={{ ...S.card, overflow: 'auto' }}>
           <table style={{ width: '100%', minWidth: 850, borderCollapse: 'collapse' }}>
             <thead>
               <tr>
