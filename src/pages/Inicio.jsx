@@ -386,8 +386,11 @@ export default function Inicio() {
             <input
               value={tokenInput}
               onChange={e => { setTokenInput(e.target.value.toUpperCase()); setErrorActivacion(null) }}
-              placeholder="Introduce tu código"
+              placeholder="Código de 10 caracteres"
               maxLength={50}
+              autoCapitalize="characters"
+              autoComplete="off"
+              spellCheck={false}
               autoFocus
               onKeyDown={e => e.key === 'Enter' && handleActivar()}
               style={{

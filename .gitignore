@@ -15,6 +15,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Reportes administrativos: pueden contener el texto completo de los libros.
+.reports/
+
 # Credenciales, certificados y almacenes de claves
 *.pem
 *.key

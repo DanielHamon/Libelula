@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { verificarToken, activarTokenLibro, activarTokenDocente } from '../services/tokens.service'
+import { prevalidarToken, verificarToken, activarTokenLibro, activarTokenDocente } from '../services/tokens.service'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 
 const C = {
@@ -107,11 +107,19 @@ export default function Activar() {
     if (!codigoLimpio) return
     setError(''); setCargando(true)
     try {
-      // La verificación de códigos exige una sesión. Para cuentas nuevas se
-      // conserva el código localmente y se valida inmediatamente después del
-      // registro, evitando un oráculo anónimo de tokens.
       if (!usuario) {
-        setTokenData(null)
+        const result = await prevalidarToken(codigoLimpio)
+        if (!result?.valido) {
+          setError(
+            result?.motivo === 'demasiados_intentos'
+              ? 'Demasiados intentos. Espera una hora antes de probar otro código.'
+              : result?.motivo === 'error_servidor'
+              ? 'No se pudo verificar el código. Intenta nuevamente.'
+              : 'Código no válido. Verifica que lo hayas escrito correctamente.'
+          )
+          return
+        }
+        setTokenData({ prevalidado: true })
         setFase('registro')
         return
       }
@@ -285,7 +293,7 @@ export default function Activar() {
         icon={fase === 'confirmar' ? (tokenData?.tipo === 'docente' ? '🏫' : '✅') : '🔐'}
         title={fase === 'confirmar' ? '¡Código válido!' : 'Crea tu cuenta'}
         subtitle={fase === 'registro'
-          ? 'Validaremos tu código de forma segura al terminar el registro.'
+          ? 'Código válido. Crea tu cuenta para completar la activación.'
           : tokenData?.tipo === 'docente'
           ? 'Tu cuenta docente está lista para activarse.'
           : 'Tu libro está listo para activarse.'}

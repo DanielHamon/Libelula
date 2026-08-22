@@ -795,3 +795,33 @@ esquema del proyecto desplegado, limitado al esquema `public`, y se sustituyó
 `supabase/schema.sql` por ese catálogo canónico. El archivo no contiene filas
 de datos ni credenciales. Con este paso queda cerrada la reproducibilidad de la
 fase 11.
+
+## Fase 12 — Preparada para despliegue
+
+Objetivo: hacer viables los códigos impresos sustituyendo la generación de 128
+bits por códigos Crockford Base32 de 10 caracteres y 50 bits de entropía.
+
+`supabase/security_phase12_tokens_10_chars.sql` instala el nuevo generador,
+actualiza las dos RPC administrativas y admite simultáneamente el formato nuevo
+y los tokens largos ya emitidos. No revoca códigos existentes. El alfabeto
+excluye `I`, `L`, `O` y `U` para reducir errores de transcripción.
+
+La migración debe aplicarse al proyecto desplegado y comprobarse con
+`supabase/security_phase12_tokens_10_chars_verify.sql`, siguiendo
+`supabase/PHASE12_TOKENS_10_CHARS_RUNBOOK.md`.
+
+## Fase 13 — Preparada para despliegue
+
+Objetivo: validar la disponibilidad básica del token antes de pedir los datos
+de registro, sin abrir la RPC autenticada existente a clientes anónimos.
+
+La Edge Function `prevalidar-token` devuelve únicamente un booleano y un motivo
+genérico. La RPC interna es exclusiva de `service_role`, registra hashes HMAC
+de red y dispositivo y limita a 100 intentos por red y 10 por dispositivo cada
+hora. La validación autenticada y el consumo atómico se repiten después del
+registro, por lo que la prevalidación no reserva el token ni crea carreras.
+
+El despliegue requiere aplicar `security_phase13_prevalidacion_anonima.sql`,
+configurar `PREVALIDACION_TOKEN_HASH_SECRET` y desplegar la Edge Function sin
+verificación JWT. El procedimiento completo está en
+`supabase/PHASE13_PREVALIDACION_RUNBOOK.md`.

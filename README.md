@@ -1,5 +1,34 @@
 # React + Vite
 
+## Reporte de texto de los PDF
+
+El extractor administrativo analiza cada página, limpia texto básico, detecta
+páginas vacías o con imágenes sin texto extraíble y genera reportes JSON, CSV y
+Markdown en `.reports/pdf-pages/`.
+
+PDF local:
+
+```bash
+npm run report:pdf -- --file /ruta/al/libro.pdf --book-id id_del_libro --include-text
+```
+
+Un libro almacenado en el bucket privado de Supabase:
+
+```bash
+npm run report:pdf -- --book-id id_del_libro --include-text
+```
+
+Todo el catálogo:
+
+```bash
+npm run report:pdf -- --all --include-text
+```
+
+Los dos últimos comandos requieren `VITE_SUPABASE_URL` y
+`SUPABASE_SERVICE_ROLE_KEY` en `.env.local`. Esta clave es exclusivamente para
+el script local: nunca debe usar el prefijo `VITE_`, subirse al repositorio ni
+emplearse en el frontend.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:
