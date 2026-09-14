@@ -1,0 +1,18 @@
+id,titulo,severidad,cvss_score,cvss_vector,dominio,componente,linea,estado,esfuerzo,prioridad,verificado,evidencia
+AUD-001,El progreso de clase pierde datos sin avisar,Critica,,,Escalabilidad,src/services/docente.service.js,45,Abierto,Medio,2,Medido en instancia local,evidencias/AUD-001_truncamiento_confirmado.md
+AUD-016,Cualquier usuario logueado lee el perfil de cualquier otro,Alta,6.5,CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N,Seguridad,supabase/schema.sql,,Abierto,Bajo-Medio,1,Medido en instancia local,evidencias/AUD-016_profiles_lectura_universal.md
+AUD-002,El limite de intentos se esquiva cambiando una cabecera,Alta,7.5,CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N,Seguridad,supabase/functions/prevalidar-token/index.ts,59,Abierto,Medio,1,Medido en instancia local,evidencias/AUD-002_evasion_confirmada.md
+AUD-003,La politica de respuestas reevalua un JOIN de tres tablas en cada fila,Alta,,,Rendimiento,supabase/schema.sql,,Abierto,Medio,1,Medido en instancia local,evidencias/AUD-003_rls_medido.md
+AUD-004,CORS abierto (*) en el unico endpoint sin autenticacion,Alta,5.3,CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N,Seguridad,supabase/functions/prevalidar-token/index.ts,2,Abierto,Bajo,1,Revision de codigo,evidencias/AUD-004_cors_wildcard.md
+AUD-005,Todo el JavaScript en un solo archivo de 1.38 MB,Alta,,,Rendimiento,vite.config.js,,Abierto,Bajo,2,Build ejecutado,evidencias/AUD-005_bundle.md
+AUD-006,El rol anonimo tiene permisos totales sobre los 25 objetos del esquema (24 tablas + 1 vista),Media,6.5,CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N,Seguridad,supabase/schema.sql,,Abierto,Bajo + regresion,1,Verificado en catalogo,evidencias/AUD-006_007_verificados.md
+AUD-015,Falta el trigger que crea los perfiles al registrarse,Media,,,Integridad,supabase/schema.sql,,Abierto,Bajo-Medio,2,Medido en instancia local,evidencias/AUD-015_trigger_ausente.md
+AUD-007,17 claves foraneas sin indice,Media,,,Rendimiento,supabase/schema.sql,,Abierto,Bajo,3,Verificado en catalogo,evidencias/AUD-006_007_verificados.md
+AUD-008,La URL firmada del PDF dura una hora y se puede repartir,Media,5.3,CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:N/A:N,Seguridad,src/services/libros.service.js,32,Abierto,Bajo,2,Revision de codigo,evidencias/AUD-008_urls_firmadas.md
+AUD-009,Tres vulnerabilidades altas en dependencias de build,Media,7.5,CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H,Seguridad,package-lock.json,,Abierto,Bajo,1,npm audit,evidencias/AUD-009_dependencias.md
+AUD-010,Un componente de 3814 lineas con 28 tipos de actividad,Media,,,Arquitectura,src/components/ActivityCard.jsx,,Abierto,Alto,3,Revision de codigo,evidencias/AUD-010_arquitectura.md
+AUD-017,generar_token_10 es invocable sin autenticarse,Baja,3.7,CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N,Seguridad,supabase/schema.sql,,Abierto,Bajo,1,Medido en instancia local,evidencias/AUD-017_superficie_rpc_verificada.md
+AUD-011,Escribe en localStorage en cada evento de mousemove,Baja,,,Rendimiento,src/hooks/useInactivityTimeout.js,25,Abierto,Bajo,3,Revision de codigo,
+AUD-012,73 efectos y casi ninguna memorizacion,Baja,,,Rendimiento,src/,,Abierto,Medio,3,Recuento sobre el codigo,
+AUD-013,Las fases 12 y 13 no tienen commit propio,Baja,,,Proceso,Historial de Git,,Abierto,Bajo,2,Historial de Git,evidencias/AUD-015_trigger_ausente.md
+AUD-014,46 sentencias de consola activas en produccion,Baja,,,Operacion,src/,,Abierto,Bajo,3,Recuento sobre el codigo,
