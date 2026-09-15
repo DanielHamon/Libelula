@@ -255,6 +255,8 @@ export default function DocenteRespuestaEstudiante() {
   const [estadoFiltro, setEstadoFiltro] = useState('')
   const [loading, setLoading] = useState(true)
   const [loadingActs, setLoadingActs] = useState(false)
+  const [errorActs, setErrorActs] = useState('')
+  const [reintento, setReintento] = useState(0)
   const [detalleOpen, setDetalleOpen] = useState(false)
 
   useEffect(() => { init() }, [])
@@ -286,35 +288,41 @@ export default function DocenteRespuestaEstudiante() {
 
   useEffect(() => {
     if (!libroSel) return
-    cargarUnidades()
+    let vigente = true
+    setUnidades([])
+    supabase.from('unidades').select('id, titulo, orden').eq('libro_id', libroSel).order('orden')
+      .then(({ data, error }) => {
+        if (vigente && !error) setUnidades(data || [])
+      })
+    return () => { vigente = false }
   }, [libroSel])
 
-  async function cargarUnidades() {
-    const { data } = await supabase.from('unidades').select('id, titulo, orden').eq('libro_id', libroSel).order('orden')
-    setUnidades(data || [])
-    setUnidadSel('all')
-  }
-
   function handleLibroChange(libroId) {
+    setUnidadSel('all')
     setLibroSel(libroId)
     setSearchParams({ libroId }, { replace: true })
   }
 
   useEffect(() => {
     if (!libroSel) return
-    cargarActividades()
-  }, [libroSel, unidadSel])
-
-  async function cargarActividades() {
+    let vigente = true
     setLoadingActs(true)
+    setErrorActs('')
+    setUnidadesData([])
     setTipoFiltro('')
     setEstadoFiltro('')
-    try {
-      const uid = unidadSel === 'all' ? null : unidadSel
-      const data = await getProgresoConRespuestas(estudianteId, libroSel, uid)
-      setUnidadesData(data)
-    } catch (e) { console.error(e) }
-    finally { setLoadingActs(false) }
+    const uid = unidadSel === 'all' ? null : unidadSel
+    getProgresoConRespuestas(estudianteId, libroSel, uid)
+      .then(data => { if (vigente) setUnidadesData(data) })
+      .catch(() => {
+        if (vigente) setErrorActs('No se pudo cargar el progreso. Intenta nuevamente.')
+      })
+      .finally(() => { if (vigente) setLoadingActs(false) })
+    return () => { vigente = false }
+  }, [estudianteId, libroSel, unidadSel, reintento])
+
+  function cargarActividades() {
+    setReintento(valor => valor + 1)
   }
 
   const todasActividades = unidadesData.flatMap(u =>
@@ -358,6 +366,9 @@ export default function DocenteRespuestaEstudiante() {
 
       <div style={{ padding: isMobile ? '20px 16px' : '28px 40px', maxWidth: 1100, margin: '0 auto' }}>
 
+        {errorActs && <div role="alert" style={{ ...card, marginBottom: 20 }}>
+          {errorActs} <button onClick={cargarActividades}>Reintentar</button>
+        </div>}
         {/* Student + class info */}
         <div style={{ ...card, marginBottom: 20, display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'center' }}>
           <div style={{
@@ -373,8 +384,8 @@ export default function DocenteRespuestaEstudiante() {
             <div style={{ fontSize: 12, color: C.textLight, marginTop: 2 }}>Clase: <strong style={{ color: C.text }}>{clase?.nombre}</strong></div>
           </div>
           <div className="responsive-stat-row" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <StatBadge label="Completadas" value={`${completadas}/${totales}`} color={C.primary} bg={C.primaryLight} />
-            <StatBadge label="Correctas" value={correctas} color={C.success} bg={C.successLight} />
+            <StatBadge label="Completadas" value={errorActs || loadingActs ? '—' : `${completadas}/${totales}`}  color={C.primary} bg={C.primaryLight} />
+            <StatBadge label="Correctas" value={errorActs || loadingActs ? '—' : correctas} color={C.success} bg={C.successLight} />
             {incorrectas > 0 && <StatBadge label="Incorrectas" value={incorrectas} color={C.danger} bg={C.dangerLight} />}
           </div>
         </div>
@@ -447,7 +458,7 @@ export default function DocenteRespuestaEstudiante() {
         {/* Activities table */}
         {loadingActs ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spinner /></div>
-        ) : actividadesFiltradas.length === 0 ? (
+        ) : errorActs ? null : actividadesFiltradas.length === 0 ? (
           <div style={{ ...card, padding: '48px 24px', textAlign: 'center' }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Sin actividades</div>
