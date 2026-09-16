@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { prevalidarToken, verificarToken, activarTokenLibro, activarTokenDocente } from '../services/tokens.service'
 import { useWindowWidth } from '../hooks/useWindowWidth'
+import TokenCaptcha from '../components/TokenCaptcha'
 
 const C = {
   primary: '#2563EB', primaryDark: '#1D4ED8', primaryLight: '#DBEAFE',
@@ -89,6 +90,8 @@ export default function Activar() {
   const [form, setForm] = useState({ nombre: '', email: '', password: '' })
   const [cargando, setCargando] = useState(false)
   const [error, setError] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaAttempt, setCaptchaAttempt] = useState(0)
 
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
@@ -104,15 +107,23 @@ export default function Activar() {
   async function handleVerificarCodigo(e) {
     e.preventDefault()
     const codigoLimpio = codigo.trim().toUpperCase()
-    if (!codigoLimpio) return
+    if (!codigoLimpio || cargando || usuario === undefined) return
+    if (!usuario && !captchaToken) {
+      setError('Completa la verificación de seguridad para continuar.')
+      return
+    }
     setError(''); setCargando(true)
     try {
       if (!usuario) {
-        const result = await prevalidarToken(codigoLimpio)
+        const proof = captchaToken
+        setCaptchaToken('')
+        const result = await prevalidarToken(codigoLimpio, proof)
         if (!result?.valido) {
           setError(
             result?.motivo === 'demasiados_intentos'
               ? 'Demasiados intentos. Espera una hora antes de probar otro código.'
+              : result?.motivo === 'captcha_invalido'
+              ? 'Repite la verificación de seguridad e intenta de nuevo.'
               : result?.motivo === 'error_servidor'
               ? 'No se pudo verificar el código. Intenta nuevamente.'
               : 'Código no válido. Verifica que lo hayas escrito correctamente.'
@@ -151,7 +162,13 @@ export default function Activar() {
       setFase(usuario ? 'confirmar' : 'registro')
     } catch {
       setError('Error al verificar el código. Intenta de nuevo.')
-    } finally { setCargando(false) }
+    } finally {
+      setCargando(false)
+      if (!usuario) {
+        setCaptchaToken('')
+        setCaptchaAttempt(value => value + 1)
+      }
+    }
   }
 
   async function handleActivarLogueado(e) {
@@ -434,7 +451,8 @@ export default function Activar() {
             autoFocus
           />
           {error && <p style={{ fontSize: 14, color: C.danger, marginBottom: 12, fontWeight: 600, textAlign: 'center' }}>{error}</p>}
-          <Btn disabled={cargando || !codigo.trim()}>
+          {!usuario && <TokenCaptcha key={captchaAttempt} onToken={setCaptchaToken} />}
+          <Btn disabled={cargando || !codigo.trim() || (!usuario && !captchaToken)}>
             {cargando ? '⏳ Verificando...' : 'Continuar →'}
           </Btn>
         </form>
