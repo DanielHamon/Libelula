@@ -1,0 +1,133 @@
+{
+  "fecha": "2026-09-21",
+  "estado": "Candidato selectivo revisado y compilado; pendiente de publicación/integración",
+  "produccion_modificada": false,
+  "fase4": "En espera de soporte; no reanudada",
+  "dependencias": {
+    "antes": {
+      "high": 3,
+      "moderate": 1
+    },
+    "despues": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "package_json_modificado": false
+  },
+  "verificaciones": {
+    "registro_limpio": "Pasa API Auth local; perfil estudiante sin escalada de metadatos",
+    "esquema_desde_cero": "Pasa",
+    "reaplicacion": "Pasa",
+    "acl_ambas_bases": "Pasa",
+    "orden_y_reservas": "Pasa; transacciones revertidas",
+    "rls_fixture_recuperado": {
+      "pasan": 24,
+      "fallan": 0
+    },
+    "comparacion_catalogo": {
+      "triggers": {
+        "solo_produccion": [],
+        "solo_local": [],
+        "diferentes": []
+      },
+      "policies": {
+        "solo_produccion": [],
+        "solo_local": [],
+        "diferentes": []
+      },
+      "tables": {
+        "solo_produccion": [],
+        "solo_local": [],
+        "diferentes": []
+      },
+      "functions": {
+        "solo_produccion": [],
+        "solo_local": [],
+        "diferentes": []
+      },
+      "indexes": {
+        "solo_produccion": [],
+        "solo_local": [],
+        "diferentes": []
+      },
+      "default_privileges": {
+        "solo_produccion": [],
+        "solo_local": [],
+        "diferentes": []
+      },
+      "definiciones_funciones": {
+        "diferentes": []
+      },
+      "grants": {
+        "solo_produccion": [],
+        "solo_local": []
+      },
+      "ok": true
+    },
+    "build": "Pasa; advertencia bundle fase 6",
+    "eslint": "Pasa",
+    "pruebas_existentes": "Pasan paginación, entorno local, Edge y CAPTCHA",
+    "unitarias": {
+      "paginacion": 6,
+      "entorno_local": 2,
+      "edge": 6,
+      "captcha": 9
+    }
+  },
+  "alcance_comparacion": {
+    "triggers": 9,
+    "politicas": 46,
+    "tablas_vistas_campos_consultados": 25,
+    "indices": 58,
+    "funciones": 59,
+    "defaults": 7,
+    "objetos_acl": 86,
+    "grants_roles_aplicacion": 406
+  },
+  "limites": [
+    "No compara datos ni configuración de servicios gestionados",
+    "No acredita todos los atributos de columnas/constraints ni todos los roles",
+    "Defaults supabase_admin mantienen residual fase 4",
+    "Sin commit ni publicación fase 5"
+  ],
+  "sha256": {
+    "package-lock.json": "46202d10edd2a7fbf9ef15af302fcab59d9221b7cdd0d464abd52705ab8bf0bc",
+    "supabase/schema.sql": "77a6fe2c9dda4658dfd8c8053b290c7f5c9ea6abc8273dc21f295b8906490581",
+    "supabase/audit_013_015_reconstruction.sql": "e7704a28a63437384cd4b0b5e2ebbc4a1b3791f98266b7f36f86f8dde8eecb65",
+    "supabase/audit_013_015_reconstruction_verify.sql": "8092786587256049875d5ea72172c77c6d2f5d225cf81d2fea370fb6f784a0e2",
+    "supabase/audit_013_reconstruction_acl.sql": "54d530a3174fa313a036463f6afb6380933a78abee953107d13406482a2c0e9e",
+    "auditoria/pruebas/scripts/22_registro_fase5.mjs": "aeabc45321ab582412b71aa4278df9fe625f0b143c4fa65563172d39725be3eb",
+    "auditoria/pruebas/scripts/23_orden_fase5.sql": "469dc87fbfc2f080f67dc0006dfd6a44f33bb5224f0458ecd0b0da48545e8055",
+    "auditoria/pruebas/scripts/24_catalogo_fase5.py": "981cafc1ede95be41ed505388925e21e006c310fc7cc067756e9318fca0edc35"
+  },
+  "entorno_local": {
+    "fase3": "Detenido; backup true confirmado",
+    "fase5": "Detenido; backup true confirmado tras reintento de stop"
+  },
+  "pausa_usuario": {
+    "fecha": "2026-09-21",
+    "solicitud": "Guardar memoria",
+    "estado": "Trabajo pausado a petición del usuario; fase 5 abierta",
+    "siguiente_paso": "Preparar paquete selectivo desde main limpio; aún sin candidato/commit/PR",
+    "produccion_modificada": false
+  },
+  "reanudacion": {
+    "base": "2e7e5497b7a7892963dab41d2d9e1ca4aff73505",
+    "candidato": "/tmp/iabooks-fase5-publicacion",
+    "rama": "auditoria-fase5-reconstruccion",
+    "hashes_implementacion": "8/8 coinciden",
+    "build": "Pasa con dependencias locales compartidas; no instalación limpia",
+    "eslint": {
+      "errores": 35,
+      "advertencias": 24,
+      "identico_a_main": true,
+      "diagnosticos_nuevos": 0
+    },
+    "sql_repetido": false,
+    "produccion_modificada": false
+  }
+}

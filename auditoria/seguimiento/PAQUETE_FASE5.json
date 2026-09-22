@@ -1,0 +1,81 @@
+{
+  "base": "2e7e5497b7a7892963dab41d2d9e1ca4aff73505",
+  "rama": "auditoria-fase5-reconstruccion",
+  "alcance": "Fase 5 AUD-009/013/015; reconstrucción incluye correcciones previamente acreditadas",
+  "aplicar_sql_produccion": false,
+  "archivos": [
+    {
+      "ruta": "auditoria/pruebas/.gitignore",
+      "sha256": "30aeb3f7df81b0d4198293cfa2dd0229958fed75353bb1e375a7ddab1f3ce31c"
+    },
+    {
+      "ruta": "auditoria/pruebas/FASE5.md",
+      "sha256": "c5100ba97e888f8a92c2aebd7635f35c942f8373f10d51316c178f8e4f17623a"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/22_registro_fase5.mjs",
+      "sha256": "aeabc45321ab582412b71aa4278df9fe625f0b143c4fa65563172d39725be3eb"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/23_orden_fase5.sql",
+      "sha256": "469dc87fbfc2f080f67dc0006dfd6a44f33bb5224f0458ecd0b0da48545e8055"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/24_catalogo_fase5.py",
+      "sha256": "981cafc1ede95be41ed505388925e21e006c310fc7cc067756e9318fca0edc35"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/entorno-local.mjs",
+      "sha256": "0b36a8bc5954c0f3eb16fa10ac85c761cf32a5e6f648b3a14c7946df3ca89c00"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/entorno-local.test.mjs",
+      "sha256": "6da0ea6585da5aba803fb7875f97c1519043611c3e12c6eba10c2d1f38051cb9"
+    },
+    {
+      "ruta": "auditoria/seguimiento/EVIDENCIA_FASE5.json",
+      "sha256": "151126b18b29dafea50f19e2edfc1b052d68dc15294b10079e99628709d03bc3"
+    },
+    {
+      "ruta": "auditoria/seguimiento/FASE5.md",
+      "sha256": "9e07296045e944a08a03910f99db5903a796213c0db4bade829a8db5aadd8e10"
+    },
+    {
+      "ruta": "auditoria/seguimiento/REVISION_PAQUETE_FASE5.md",
+      "sha256": "cbe1c0029083663f1056e3d7d75cdc8c22154542b9fb558ef45abd81a462646c"
+    },
+    {
+      "ruta": "auditoria/seguimiento/consulta_acl_fase5.sql",
+      "sha256": "13fcc4bb1c0936f9fdf6814b69a8617b6c2ebbf33c38f44a83f8761f120eae9d"
+    },
+    {
+      "ruta": "auditoria/seguimiento/consulta_catalogo.sql",
+      "sha256": "9d18c9c9922fa1550e7435e3a941c37f72a243dae41473a52816609ac247cea8"
+    },
+    {
+      "ruta": "auditoria/seguimiento/consulta_fase5.sql",
+      "sha256": "9009869c4811c48dad37e57dc2850aa03673a148cf7e6c3c794dc1c62a6939ed"
+    },
+    {
+      "ruta": "package-lock.json",
+      "sha256": "46202d10edd2a7fbf9ef15af302fcab59d9221b7cdd0d464abd52705ab8bf0bc"
+    },
+    {
+      "ruta": "supabase/audit_013_015_reconstruction.sql",
+      "sha256": "e7704a28a63437384cd4b0b5e2ebbc4a1b3791f98266b7f36f86f8dde8eecb65"
+    },
+    {
+      "ruta": "supabase/audit_013_015_reconstruction_verify.sql",
+      "sha256": "8092786587256049875d5ea72172c77c6d2f5d225cf81d2fea370fb6f784a0e2"
+    },
+    {
+      "ruta": "supabase/audit_013_reconstruction_acl.sql",
+      "sha256": "54d530a3174fa313a036463f6afb6380933a78abee953107d13406482a2c0e9e"
+    },
+    {
+      "ruta": "supabase/schema.sql",
+      "sha256": "77a6fe2c9dda4658dfd8c8053b290c7f5c9ea6abc8273dc21f295b8906490581"
+    }
+  ],
+  "manifiesto": "Este archivo no incluye su propio hash"
+}
