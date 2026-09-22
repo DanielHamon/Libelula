@@ -403,12 +403,17 @@ $$;
 ALTER FUNCTION "public"."admin_solicitar_accion_sensible"("p_tipo" "text", "p_payload" "jsonb") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."admin_solicitar_accion_sensible_v2"("p_tipo" "text", "p_payload" "jsonb" DEFAULT '{}'::"jsonb") RETURNS "jsonb"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'pg_catalog', 'public', 'auth'
-    AS $$
+CREATE OR REPLACE FUNCTION public.admin_solicitar_accion_sensible_v2(p_tipo text, p_payload jsonb DEFAULT '{}'::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public', 'auth'
+AS $function$
 DECLARE
   v_id UUID;
+  v_payload JSONB := p_payload;
+  v_libro_id TEXT;
+  v_orden INTEGER;
 BEGIN
   IF NOT public.es_admin() THEN
     RAISE EXCEPTION 'permiso_denegado' USING ERRCODE = '42501';
@@ -428,18 +433,45 @@ BEGIN
     RAISE EXCEPTION 'payload_invalido' USING ERRCODE = '22023';
   END IF;
 
+  IF p_tipo = 'crear_unidad' THEN
+    v_libro_id := nullif(trim(p_payload ->> 'libro_id'), '');
+    IF v_libro_id IS NULL THEN
+      RAISE EXCEPTION 'libro_id_invalido' USING ERRCODE = '22023';
+    END IF;
+
+    PERFORM pg_advisory_xact_lock(hashtextextended('crear_unidad:' || v_libro_id, 0));
+
+    SELECT COALESCE(MAX(orden), 0) + 1
+    INTO v_orden
+    FROM (
+      SELECT u.orden
+      FROM public.unidades u
+      WHERE u.libro_id = v_libro_id
+      UNION ALL
+      SELECT (a.payload ->> 'orden')::integer
+      FROM public.acciones_admin_pendientes a
+      WHERE a.tipo = 'crear_unidad'
+        AND a.estado = 'pendiente'
+        AND a.payload ->> 'libro_id' = v_libro_id
+        AND (a.payload ->> 'orden') ~ '^[0-9]+$'
+    ) ordenes_reservados;
+
+    v_payload := jsonb_set(v_payload, '{orden}', to_jsonb(v_orden), true);
+  END IF;
+
   INSERT INTO public.acciones_admin_pendientes (tipo, payload, solicitante_id)
-  VALUES (p_tipo, p_payload, auth.uid())
+  VALUES (p_tipo, v_payload, auth.uid())
   RETURNING id INTO v_id;
 
   INSERT INTO public.admin_logs (admin_id, accion, entidad, entidad_id, payload)
   VALUES (
     auth.uid(), 'solicito_accion_sensible', 'accion_admin', v_id::text,
-    jsonb_build_object('tipo', p_tipo, 'payload', p_payload)
+    jsonb_build_object('tipo', p_tipo, 'payload', v_payload)
   );
   RETURN jsonb_build_object('ok', true, 'pendiente', true, 'id', v_id);
 END;
-$$;
+$function$
+;
 
 
 ALTER FUNCTION "public"."admin_solicitar_accion_sensible_v2"("p_tipo" "text", "p_payload" "jsonb") OWNER TO "postgres";
@@ -1913,21 +1945,24 @@ $$;
 ALTER FUNCTION "public"."generar_token_128"("p_prefijo" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."generar_token_10"() RETURNS "text"
-    LANGUAGE "plpgsql"
-    SET "search_path" TO 'pg_catalog', 'extensions'
-    AS $$
+CREATE OR REPLACE FUNCTION public.generar_token_10()
+ RETURNS text
+ LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'extensions'
+AS $function$
 DECLARE
   v_alfabeto CONSTANT TEXT := '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
   v_bytes BYTEA := extensions.gen_random_bytes(10);
   v_token TEXT := '';
 BEGIN
   FOR i IN 0..9 LOOP
+    -- 256 es múltiplo de 32, por lo que este mapeo no introduce sesgo.
     v_token := v_token || substr(v_alfabeto, get_byte(v_bytes, i) % 32 + 1, 1);
   END LOOP;
   RETURN v_token;
 END;
-$$;
+$function$
+;
 
 
 ALTER FUNCTION "public"."generar_token_10"() OWNER TO "postgres";
@@ -2015,6 +2050,7 @@ BEGIN
         'titulo', u.titulo,
         'etiqueta', u.etiqueta,
         'subtitulo', u.subtitulo,
+        'texto', u.texto,
         'emoji', u.emoji,
         'orden', u.orden,
         'actividades', (
@@ -2096,53 +2132,91 @@ $$;
 ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."is_admin"("uid" "uuid") RETURNS boolean
-    LANGUAGE "sql" STABLE SECURITY DEFINER
-    SET "search_path" TO 'pg_catalog', 'public'
-    AS $$
+CREATE OR REPLACE FUNCTION public.is_admin(uid uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
     SELECT EXISTS (SELECT 1 FROM profiles WHERE id = uid AND rol = 'admin');
-  $$;
+  $function$
+;
 
 
 ALTER FUNCTION "public"."is_admin"("uid" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."is_docente_of"("p_usuario_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
-    SET "search_path" TO 'pg_catalog', 'public'
-    AS $$
+CREATE OR REPLACE FUNCTION public.puede_leer_perfil_de_alumno(p_estudiante_id uuid)
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER
+SET search_path = pg_catalog
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles docente
+    JOIN public.clases c ON c.docente_id = docente.id
+                       AND c.escuela_id = docente.escuela_id
+    JOIN public.inscripciones i ON i.clase_id = c.id
+    JOIN public.profiles alumno ON alumno.id = i.estudiante_id
+                              AND alumno.escuela_id = c.escuela_id
+    WHERE docente.id = auth.uid()
+      AND docente.rol = 'docente'
+      AND alumno.rol = 'estudiante'
+      AND alumno.id = p_estudiante_id
+  );
+$$;
+ALTER FUNCTION public.puede_leer_perfil_de_alumno(uuid) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.puede_leer_perfil_de_alumno(uuid)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.puede_leer_perfil_de_alumno(uuid)
+  TO authenticated, service_role;
+
+
+CREATE OR REPLACE FUNCTION public.is_docente_of(p_usuario_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
     SELECT EXISTS (
       SELECT 1 FROM inscripciones i
       JOIN clases c ON c.id = i.clase_id
       WHERE i.estudiante_id = p_usuario_id AND c.docente_id = auth.uid()
     )
-  $$;
+  $function$
+;
 
 
 ALTER FUNCTION "public"."is_docente_of"("p_usuario_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."is_docente_of_clase"("p_clase_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
-    SET "search_path" TO 'pg_catalog', 'public'
-    AS $$
+CREATE OR REPLACE FUNCTION public.is_docente_of_clase(p_clase_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
     SELECT EXISTS (
       SELECT 1 FROM clases WHERE id = p_clase_id AND docente_id = auth.uid()
     )
-  $$;
+  $function$
+;
 
 
 ALTER FUNCTION "public"."is_docente_of_clase"("p_clase_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."is_inscrito_en_clase"("p_clase_id" "uuid") RETURNS boolean
-    LANGUAGE "sql" SECURITY DEFINER
-    SET "search_path" TO 'pg_catalog', 'public'
-    AS $$
+CREATE OR REPLACE FUNCTION public.is_inscrito_en_clase(p_clase_id uuid)
+ RETURNS boolean
+ LANGUAGE sql
+ SECURITY DEFINER
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
     SELECT EXISTS (
       SELECT 1 FROM inscripciones WHERE clase_id = p_clase_id AND estudiante_id = auth.uid()
     )
-  $$;
+  $function$
+;
 
 
 ALTER FUNCTION "public"."is_inscrito_en_clase"("p_clase_id" "uuid") OWNER TO "postgres";
@@ -3384,7 +3458,6 @@ CREATE OR REPLACE FUNCTION "public"."prevalidar_token_anonimo"("p_token" "text",
 DECLARE
   v_token TEXT := upper(trim(p_token));
   v_intentos_red INTEGER;
-  v_intentos_dispositivo INTEGER;
 BEGIN
   IF p_red_hash IS NULL
      OR p_dispositivo_hash IS NULL
@@ -3394,19 +3467,13 @@ BEGIN
   END IF;
 
   PERFORM pg_advisory_xact_lock(hashtextextended(p_red_hash, 0));
-  PERFORM pg_advisory_xact_lock(hashtextextended(p_dispositivo_hash, 1));
 
   SELECT count(*) INTO v_intentos_red
   FROM public.intentos_token_anonimos
   WHERE red_hash = p_red_hash
     AND intentado_en > now() - interval '1 hour';
 
-  SELECT count(*) INTO v_intentos_dispositivo
-  FROM public.intentos_token_anonimos
-  WHERE dispositivo_hash = p_dispositivo_hash
-    AND intentado_en > now() - interval '1 hour';
-
-  IF v_intentos_red >= 100 OR v_intentos_dispositivo >= 10 THEN
+  IF v_intentos_red >= 100 THEN
     RETURN jsonb_build_object('valido', false, 'motivo', 'demasiados_intentos');
   END IF;
 
@@ -4150,6 +4217,39 @@ CREATE INDEX "idx_unidades_libro" ON "public"."unidades" USING "btree" ("libro_i
 
 
 
+-- Fase 5: objetos presentes en producción y ausentes del esquema reconstruible.
+CREATE OR REPLACE FUNCTION public.normalizar_orden_unidad_al_insertar()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SET search_path TO 'pg_catalog', 'public'
+AS $function$
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended('crear_unidad:' || NEW.libro_id, 0));
+  IF NEW.orden IS NULL OR EXISTS (
+    SELECT 1
+    FROM public.unidades u
+    WHERE u.libro_id = NEW.libro_id
+      AND u.orden = NEW.orden
+  ) THEN
+    SELECT COALESCE(MAX(u.orden), 0) + 1
+    INTO NEW.orden
+    FROM public.unidades u
+    WHERE u.libro_id = NEW.libro_id;
+  END IF;
+  RETURN NEW;
+END;
+$function$
+;
+ALTER FUNCTION public.normalizar_orden_unidad_al_insertar() OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.normalizar_orden_unidad_al_insertar() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.normalizar_orden_unidad_al_insertar() TO authenticated, service_role;
+
+CREATE OR REPLACE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+CREATE OR REPLACE TRIGGER normalizar_orden_unidad_al_insertar BEFORE INSERT ON public.unidades
+FOR EACH ROW EXECUTE FUNCTION public.normalizar_orden_unidad_al_insertar();
+
 CREATE OR REPLACE TRIGGER "actividades_auditoria_admin" AFTER INSERT OR DELETE OR UPDATE ON "public"."actividades" FOR EACH ROW EXECUTE FUNCTION "public"."auditar_actividad_admin"();
 
 
@@ -4410,19 +4510,20 @@ CREATE POLICY "acciones_admin_admin_read" ON "public"."acciones_admin_pendientes
 ALTER TABLE "public"."acciones_admin_pendientes" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "act_progreso_docente_scoped_read" ON "public"."actividad_progreso" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
-   FROM (((("public"."actividades" "a"
-     JOIN "public"."unidades" "u" ON (("u"."id" = "a"."unidad_id")))
-     JOIN "public"."inscripciones" "i" ON (("i"."estudiante_id" = "actividad_progreso"."usuario_id")))
-     JOIN "public"."clases" "c" ON (("c"."id" = "i"."clase_id")))
-     JOIN "public"."clase_libros" "cl" ON ((("cl"."clase_id" = "c"."id") AND ("cl"."libro_id" = "u"."libro_id"))))
-  WHERE (("a"."id" = "actividad_progreso"."actividad_id") AND ("c"."docente_id" = "auth"."uid"()) AND ("c"."escuela_id" = ( SELECT "p"."escuela_id"
-           FROM "public"."profiles" "p"
-          WHERE ("p"."id" = "auth"."uid"())))))));
+CREATE POLICY "act_progreso_docente_scoped_read" ON "public"."actividad_progreso" FOR SELECT TO "authenticated" USING (((usuario_id, actividad_id) IN ( SELECT i.estudiante_id,
+    a.id
+   FROM ((((public.inscripciones i
+     JOIN public.clases c ON ((c.id = i.clase_id)))
+     JOIN public.clase_libros cl ON ((cl.clase_id = c.id)))
+     JOIN public.unidades u ON ((u.libro_id = cl.libro_id)))
+     JOIN public.actividades a ON ((a.unidad_id = u.id)))
+  WHERE ((c.docente_id = ( SELECT auth.uid() AS uid)) AND (c.escuela_id = ( SELECT p.escuela_id
+           FROM public.profiles p
+          WHERE (p.id = ( SELECT auth.uid() AS uid))))))));
 
 
 
-CREATE POLICY "act_progreso_own_read" ON "public"."actividad_progreso" FOR SELECT TO "authenticated" USING (("usuario_id" = "auth"."uid"()));
+CREATE POLICY "act_progreso_own_read" ON "public"."actividad_progreso" FOR SELECT TO "authenticated" USING ((usuario_id = ( SELECT auth.uid() AS uid)));
 
 
 
@@ -4632,7 +4733,7 @@ CREATE POLICY "profiles_admin_select" ON "public"."profiles" FOR SELECT TO "auth
 
 
 
-CREATE POLICY "profiles_authenticated_read" ON "public"."profiles" FOR SELECT USING (("auth"."uid"() IS NOT NULL));
+CREATE POLICY "profiles_docente_alumnos_select" ON "public"."profiles" FOR SELECT TO "authenticated" USING ("public"."puede_leer_perfil_de_alumno"("id"));
 
 
 
@@ -4647,17 +4748,18 @@ CREATE POLICY "profiles_own_update" ON "public"."profiles" FOR UPDATE TO "authen
 ALTER TABLE "public"."progreso" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "progreso_docente_scoped_read" ON "public"."progreso" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
-   FROM (("public"."inscripciones" "i"
-     JOIN "public"."clases" "c" ON (("c"."id" = "i"."clase_id")))
-     JOIN "public"."clase_libros" "cl" ON ((("cl"."clase_id" = "c"."id") AND ("cl"."libro_id" = "progreso"."libro_id"))))
-  WHERE (("i"."estudiante_id" = "progreso"."usuario_id") AND ("c"."docente_id" = "auth"."uid"()) AND ("c"."escuela_id" = ( SELECT "p"."escuela_id"
-           FROM "public"."profiles" "p"
-          WHERE ("p"."id" = "auth"."uid"())))))));
+CREATE POLICY "progreso_docente_scoped_read" ON "public"."progreso" FOR SELECT TO "authenticated" USING (((usuario_id, libro_id) IN ( SELECT i.estudiante_id,
+    cl.libro_id
+   FROM ((public.inscripciones i
+     JOIN public.clases c ON ((c.id = i.clase_id)))
+     JOIN public.clase_libros cl ON ((cl.clase_id = c.id)))
+  WHERE ((c.docente_id = ( SELECT auth.uid() AS uid)) AND (c.escuela_id = ( SELECT p.escuela_id
+           FROM public.profiles p
+          WHERE (p.id = ( SELECT auth.uid() AS uid))))))));
 
 
 
-CREATE POLICY "progreso_own_read" ON "public"."progreso" FOR SELECT TO "authenticated" USING (("usuario_id" = "auth"."uid"()));
+CREATE POLICY "progreso_own_read" ON "public"."progreso" FOR SELECT TO "authenticated" USING ((usuario_id = ( SELECT auth.uid() AS uid)));
 
 
 
@@ -4668,17 +4770,18 @@ CREATE POLICY "respuestas_admin_read" ON "public"."respuestas" FOR SELECT TO "au
 
 
 
-CREATE POLICY "respuestas_docente_scoped_read" ON "public"."respuestas" FOR SELECT TO "authenticated" USING ((EXISTS ( SELECT 1
-   FROM (("public"."inscripciones" "i"
-     JOIN "public"."clases" "c" ON (("c"."id" = "i"."clase_id")))
-     JOIN "public"."clase_libros" "cl" ON ((("cl"."clase_id" = "c"."id") AND ("cl"."libro_id" = "respuestas"."libro_id"))))
-  WHERE (("i"."estudiante_id" = "respuestas"."usuario_id") AND ("c"."docente_id" = "auth"."uid"()) AND ("c"."escuela_id" = ( SELECT "p"."escuela_id"
-           FROM "public"."profiles" "p"
-          WHERE ("p"."id" = "auth"."uid"())))))));
+CREATE POLICY "respuestas_docente_scoped_read" ON "public"."respuestas" FOR SELECT TO "authenticated" USING (((usuario_id, libro_id) IN ( SELECT i.estudiante_id,
+    cl.libro_id
+   FROM ((public.inscripciones i
+     JOIN public.clases c ON ((c.id = i.clase_id)))
+     JOIN public.clase_libros cl ON ((cl.clase_id = c.id)))
+  WHERE ((c.docente_id = ( SELECT auth.uid() AS uid)) AND (c.escuela_id = ( SELECT p.escuela_id
+           FROM public.profiles p
+          WHERE (p.id = ( SELECT auth.uid() AS uid))))))));
 
 
 
-CREATE POLICY "respuestas_own_read" ON "public"."respuestas" FOR SELECT TO "authenticated" USING (("usuario_id" = "auth"."uid"()));
+CREATE POLICY "respuestas_own_read" ON "public"."respuestas" FOR SELECT TO "authenticated" USING ((usuario_id = ( SELECT auth.uid() AS uid)));
 
 
 
@@ -4890,7 +4993,7 @@ GRANT ALL ON FUNCTION "public"."get_mis_libros_estado"() TO "authenticated";
 
 
 
-REVOKE ALL ON FUNCTION "public"."handle_new_user"() FROM PUBLIC;
+REVOKE ALL ON FUNCTION "public"."handle_new_user"() FROM PUBLIC, anon, authenticated;
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
 
 
@@ -5215,3 +5318,538 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
+
+
+-- Fase 4: cierre de ACL anónimos y defaults de objetos de aplicación.
+-- Fase 4: ACL residuales constatados en producción. No modifica RLS ni datos.
+BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
+
+REVOKE ALL ON TABLE public.actividad_progreso, public.libro_activaciones,
+  public.profiles, public.progreso, public.progreso_clase, public.respuestas
+  FROM anon, PUBLIC;
+REVOKE ALL ON SEQUENCE public.grados_id_seq, public.intentos_token_anonimos_id_seq
+  FROM anon, PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.generar_token_10(), public.generar_token_128(text),
+  public.prevalidar_token_anonimo(text,text,text)
+  FROM anon, authenticated, PUBLIC;
+
+REVOKE EXECUTE ON FUNCTION public.verificar_token(text), public.activar_token(text),
+  public.activar_token_docente(text) FROM anon, PUBLIC;
+
+-- Las funciones de trigger no necesitan concesión al usuario que dispara el trigger.
+DO $$ BEGIN
+  IF to_regprocedure('public.normalizar_orden_unidad_al_insertar()') IS NOT NULL THEN
+    REVOKE EXECUTE ON FUNCTION public.normalizar_orden_unidad_al_insertar() FROM anon, PUBLIC;
+  END IF;
+END $$;
+
+-- PUBLIC concede EXECUTE globalmente por defecto: revocar solo IN SCHEMA no basta.
+-- Se conserva el acceso explícito de authenticated y service_role.
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC, anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC, anon;
+ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public REVOKE ALL ON SEQUENCES FROM PUBLIC, anon;
+
+-- Los defaults de supabase_admin son administrados por Supabase; se informan
+-- separadamente y no se modifica ese rol con una cuenta sin autorización.
+COMMIT;
+
+-- Fase 5: ACL de reconstrucción, catálogo de producción consultado el 2026-09-21.
+-- Solo para reproducir instalaciones locales/nuevas; no aplicar a producción.
+-- Los defaults gestionados de supabase_admin permanecen fuera de este ajuste.
+BEGIN;
+REVOKE ALL ON FUNCTION public.activar_token(p_token text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.activar_token(p_token text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.activar_token(p_token text) TO "service_role";
+REVOKE ALL ON FUNCTION public.activar_token_docente(p_token text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.activar_token_docente(p_token text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.activar_token_docente(p_token text) TO "service_role";
+REVOKE ALL ON FUNCTION public.admin_cambiar_rol_usuario(p_usuario_id uuid, p_rol text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_cambiar_rol_usuario(p_usuario_id uuid, p_rol text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.admin_cambiar_rol_usuario(p_usuario_id uuid, p_rol text) TO "service_role";
+REVOKE ALL ON FUNCTION public.admin_crear_tokens_docente(p_escuela_id uuid, p_emails text[], p_expira_en timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_crear_tokens_docente(p_escuela_id uuid, p_emails text[], p_expira_en timestamp with time zone) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.admin_crear_tokens_docente(p_escuela_id uuid, p_emails text[], p_expira_en timestamp with time zone) TO "service_role";
+REVOKE ALL ON FUNCTION public.admin_crear_tokens_libro(p_escuela_id uuid, p_libro_id text, p_grado_id integer, p_cantidad integer, p_expira_en timestamp with time zone) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_crear_tokens_libro(p_escuela_id uuid, p_libro_id text, p_grado_id integer, p_cantidad integer, p_expira_en timestamp with time zone) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.admin_crear_tokens_libro(p_escuela_id uuid, p_libro_id text, p_grado_id integer, p_cantidad integer, p_expira_en timestamp with time zone) TO "service_role";
+REVOKE ALL ON FUNCTION public.admin_solicitar_accion_sensible(p_tipo text, p_payload jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_solicitar_accion_sensible(p_tipo text, p_payload jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.admin_solicitar_accion_sensible_v2(p_tipo text, p_payload jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.admin_solicitar_accion_sensible_v2(p_tipo text, p_payload jsonb) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.admin_solicitar_accion_sensible_v2(p_tipo text, p_payload jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.auditar_actividad_admin() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.auditar_actividad_admin() TO "service_role";
+REVOKE ALL ON FUNCTION public.bloquear_desactivacion_directa() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.bloquear_desactivacion_directa() TO "service_role";
+REVOKE ALL ON FUNCTION public.buscar_clase_para_unirse(p_codigo text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.buscar_clase_para_unirse(p_codigo text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.buscar_clase_para_unirse(p_codigo text) TO "service_role";
+REVOKE ALL ON FUNCTION public.campos_publicos_actividad(p_tipo text, p_campos jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.campos_publicos_actividad(p_tipo text, p_campos jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.campos_publicos_actividad_pre_acrostic(p_tipo text, p_campos jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.campos_publicos_actividad_pre_acrostic(p_tipo text, p_campos jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.campos_publicos_actividad_pre_crossword(p_tipo text, p_campos jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.campos_publicos_actividad_pre_crossword(p_tipo text, p_campos jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.campos_publicos_actividad_pre_matching(p_tipo text, p_campos jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.campos_publicos_actividad_pre_matching(p_tipo text, p_campos jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.campos_publicos_actividad_pre_syllables(p_tipo text, p_campos jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.campos_publicos_actividad_pre_syllables(p_tipo text, p_campos jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.consumir_limite_progreso(p_usuario_id uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.consumir_limite_progreso(p_usuario_id uuid) TO "service_role";
+REVOKE ALL ON FUNCTION public.crear_clase(p_nombre text, p_grado_id integer) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.crear_clase(p_nombre text, p_grado_id integer) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.crear_clase(p_nombre text, p_grado_id integer) TO "service_role";
+REVOKE ALL ON FUNCTION public.es_admin() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.es_admin() TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.es_admin() TO "service_role";
+REVOKE ALL ON FUNCTION public.es_superadministrador() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.es_superadministrador() TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.es_superadministrador() TO "service_role";
+REVOKE ALL ON FUNCTION public.evaluar_detalle_separar_silabas(p_actividad_id text, p_respuesta jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.evaluar_detalle_separar_silabas(p_actividad_id text, p_respuesta jsonb) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.evaluar_detalle_separar_silabas(p_actividad_id text, p_respuesta jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.evaluar_intento_actividad(p_actividad_id text, p_respuesta jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.evaluar_intento_actividad(p_actividad_id text, p_respuesta jsonb) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.evaluar_intento_actividad(p_actividad_id text, p_respuesta jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.evaluar_respuesta_actividad(p_tipo text, p_campos jsonb, p_respuesta jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.evaluar_respuesta_actividad(p_tipo text, p_campos jsonb, p_respuesta jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.evaluar_respuesta_actividad_pre_acrostic(p_tipo text, p_campos jsonb, p_respuesta jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.evaluar_respuesta_actividad_pre_acrostic(p_tipo text, p_campos jsonb, p_respuesta jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.evaluar_respuesta_actividad_pre_crossword(p_tipo text, p_campos jsonb, p_respuesta jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.evaluar_respuesta_actividad_pre_crossword(p_tipo text, p_campos jsonb, p_respuesta jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.evaluar_respuesta_actividad_pre_syllables(p_tipo text, p_campos jsonb, p_respuesta jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.evaluar_respuesta_actividad_pre_syllables(p_tipo text, p_campos jsonb, p_respuesta jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.generar_token_10() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.generar_token_10() TO "service_role";
+REVOKE ALL ON FUNCTION public.generar_token_128(p_prefijo text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.generar_token_128(p_prefijo text) TO "service_role";
+REVOKE ALL ON FUNCTION public.get_actividad_publica(p_actividad_id text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_actividad_publica(p_actividad_id text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.get_actividad_publica(p_actividad_id text) TO "service_role";
+REVOKE ALL ON FUNCTION public.get_libro_completo(p_libro_id text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_libro_completo(p_libro_id text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.get_libro_completo(p_libro_id text) TO "service_role";
+REVOKE ALL ON FUNCTION public.get_mis_libros_estado() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.get_mis_libros_estado() TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.get_mis_libros_estado() TO "service_role";
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.handle_new_user() TO "service_role";
+REVOKE ALL ON FUNCTION public.is_admin(uid uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_admin(uid uuid) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.is_admin(uid uuid) TO "service_role";
+REVOKE ALL ON FUNCTION public.is_docente_of(p_usuario_id uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_docente_of(p_usuario_id uuid) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.is_docente_of(p_usuario_id uuid) TO "service_role";
+REVOKE ALL ON FUNCTION public.is_docente_of_clase(p_clase_id uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_docente_of_clase(p_clase_id uuid) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.is_docente_of_clase(p_clase_id uuid) TO "service_role";
+REVOKE ALL ON FUNCTION public.is_inscrito_en_clase(p_clase_id uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_inscrito_en_clase(p_clase_id uuid) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.is_inscrito_en_clase(p_clase_id uuid) TO "service_role";
+REVOKE ALL ON FUNCTION public.marcar_archivos_accion_rechazada() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.marcar_archivos_accion_rechazada() TO "service_role";
+REVOKE ALL ON FUNCTION public.normalizar_crucigrama_texto(p_valor text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.normalizar_crucigrama_texto(p_valor text) TO "service_role";
+REVOKE ALL ON FUNCTION public.normalizar_orden_unidad_al_insertar() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.normalizar_orden_unidad_al_insertar() TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.normalizar_orden_unidad_al_insertar() TO "service_role";
+REVOKE ALL ON FUNCTION public.normalizar_respuesta_texto(p_valor text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.normalizar_respuesta_texto(p_valor text) TO "service_role";
+REVOKE ALL ON FUNCTION public.normalizar_separacion_silabas(p_valor text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.normalizar_separacion_silabas(p_valor text) TO "service_role";
+REVOKE ALL ON FUNCTION public.prevalidar_token_anonimo(p_token text, p_red_hash text, p_dispositivo_hash text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.prevalidar_token_anonimo(p_token text, p_red_hash text, p_dispositivo_hash text) TO "service_role";
+REVOKE ALL ON FUNCTION public.proteger_cambio_rol_aprobado() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.proteger_cambio_rol_aprobado() TO "service_role";
+REVOKE ALL ON FUNCTION public.puede_acceder_libro(p_libro_id text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.puede_acceder_libro(p_libro_id text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.puede_acceder_libro(p_libro_id text) TO "service_role";
+REVOKE ALL ON FUNCTION public.puede_acceder_objeto_libro(p_object_name text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.puede_acceder_objeto_libro(p_object_name text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.puede_acceder_objeto_libro(p_object_name text) TO "service_role";
+REVOKE ALL ON FUNCTION public.puede_leer_perfil_de_alumno(p_estudiante_id uuid) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.puede_leer_perfil_de_alumno(p_estudiante_id uuid) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.puede_leer_perfil_de_alumno(p_estudiante_id uuid) TO "service_role";
+REVOKE ALL ON FUNCTION public.registrar_archivo_libro_staging(p_path text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.registrar_archivo_libro_staging(p_path text) TO "service_role";
+REVOKE ALL ON FUNCTION public.registrar_progreso_actividad(p_actividad_id text, p_respuesta jsonb, p_es_correcta boolean, p_guardar_respuesta boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.registrar_progreso_actividad(p_actividad_id text, p_respuesta jsonb, p_es_correcta boolean, p_guardar_respuesta boolean) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.registrar_progreso_actividad(p_actividad_id text, p_respuesta jsonb, p_es_correcta boolean, p_guardar_respuesta boolean) TO "service_role";
+REVOKE ALL ON FUNCTION public.registrar_progreso_actividad_pre_phase6_final(p_actividad_id text, p_respuesta jsonb, p_es_correcta boolean, p_guardar_respuesta boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.registrar_progreso_actividad_pre_phase6_final(p_actividad_id text, p_respuesta jsonb, p_es_correcta boolean, p_guardar_respuesta boolean) TO "service_role";
+REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.rls_auto_enable() TO "service_role";
+REVOKE ALL ON FUNCTION public.sesion_es_aal2() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.sesion_es_aal2() TO "anon";
+GRANT EXECUTE ON FUNCTION public.sesion_es_aal2() TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.sesion_es_aal2() TO "service_role";
+REVOKE ALL ON FUNCTION public.superadmin_resolver_accion(p_accion_id uuid, p_aprobar boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.superadmin_resolver_accion(p_accion_id uuid, p_aprobar boolean) TO "service_role";
+REVOKE ALL ON FUNCTION public.superadmin_resolver_accion_fase3_interna(p_accion_id uuid, p_aprobar boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.superadmin_resolver_accion_fase3_interna(p_accion_id uuid, p_aprobar boolean) TO "service_role";
+REVOKE ALL ON FUNCTION public.superadmin_resolver_accion_v2(p_accion_id uuid, p_aprobar boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.superadmin_resolver_accion_v2(p_accion_id uuid, p_aprobar boolean) TO "service_role";
+REVOKE ALL ON FUNCTION public.superadmin_resolver_accion_v3(p_accion_id uuid, p_aprobar boolean) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.superadmin_resolver_accion_v3(p_accion_id uuid, p_aprobar boolean) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.superadmin_resolver_accion_v3(p_accion_id uuid, p_aprobar boolean) TO "service_role";
+REVOKE ALL ON FUNCTION public.unirse_clase(p_codigo text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.unirse_clase(p_codigo text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.unirse_clase(p_codigo text) TO "service_role";
+REVOKE ALL ON FUNCTION public.validar_actividad_identificar() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.validar_actividad_identificar() TO "service_role";
+REVOKE ALL ON FUNCTION public.validar_payload_respuesta(p_respuesta jsonb) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.validar_payload_respuesta(p_respuesta jsonb) TO "service_role";
+REVOKE ALL ON FUNCTION public.validar_publicacion_archivos_libro() FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.validar_publicacion_archivos_libro() TO "service_role";
+REVOKE ALL ON FUNCTION public.verificar_token(p_token text) FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.verificar_token(p_token text) TO "authenticated";
+GRANT EXECUTE ON FUNCTION public.verificar_token(p_token text) TO "service_role";
+REVOKE ALL ON SEQUENCE public.grados_id_seq FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON SEQUENCE public.grados_id_seq TO "authenticated";
+GRANT UPDATE ON SEQUENCE public.grados_id_seq TO "authenticated";
+GRANT USAGE ON SEQUENCE public.grados_id_seq TO "authenticated";
+GRANT SELECT ON SEQUENCE public.grados_id_seq TO "service_role";
+GRANT UPDATE ON SEQUENCE public.grados_id_seq TO "service_role";
+GRANT USAGE ON SEQUENCE public.grados_id_seq TO "service_role";
+REVOKE ALL ON SEQUENCE public.intentos_token_anonimos_id_seq FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON SEQUENCE public.intentos_token_anonimos_id_seq TO "authenticated";
+GRANT UPDATE ON SEQUENCE public.intentos_token_anonimos_id_seq TO "authenticated";
+GRANT USAGE ON SEQUENCE public.intentos_token_anonimos_id_seq TO "authenticated";
+GRANT SELECT ON SEQUENCE public.intentos_token_anonimos_id_seq TO "service_role";
+GRANT UPDATE ON SEQUENCE public.intentos_token_anonimos_id_seq TO "service_role";
+GRANT USAGE ON SEQUENCE public.intentos_token_anonimos_id_seq TO "service_role";
+REVOKE ALL ON TABLE public.acciones_admin_pendientes FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON TABLE public.acciones_admin_pendientes TO "authenticated";
+GRANT DELETE ON TABLE public.acciones_admin_pendientes TO "service_role";
+GRANT INSERT ON TABLE public.acciones_admin_pendientes TO "service_role";
+GRANT MAINTAIN ON TABLE public.acciones_admin_pendientes TO "service_role";
+GRANT REFERENCES ON TABLE public.acciones_admin_pendientes TO "service_role";
+GRANT SELECT ON TABLE public.acciones_admin_pendientes TO "service_role";
+GRANT TRIGGER ON TABLE public.acciones_admin_pendientes TO "service_role";
+GRANT TRUNCATE ON TABLE public.acciones_admin_pendientes TO "service_role";
+GRANT UPDATE ON TABLE public.acciones_admin_pendientes TO "service_role";
+REVOKE ALL ON TABLE public.actividad_progreso FROM PUBLIC, anon, authenticated, service_role;
+GRANT MAINTAIN ON TABLE public.actividad_progreso TO "authenticated";
+GRANT REFERENCES ON TABLE public.actividad_progreso TO "authenticated";
+GRANT SELECT ON TABLE public.actividad_progreso TO "authenticated";
+GRANT TRIGGER ON TABLE public.actividad_progreso TO "authenticated";
+GRANT TRUNCATE ON TABLE public.actividad_progreso TO "authenticated";
+GRANT DELETE ON TABLE public.actividad_progreso TO "service_role";
+GRANT INSERT ON TABLE public.actividad_progreso TO "service_role";
+GRANT MAINTAIN ON TABLE public.actividad_progreso TO "service_role";
+GRANT REFERENCES ON TABLE public.actividad_progreso TO "service_role";
+GRANT SELECT ON TABLE public.actividad_progreso TO "service_role";
+GRANT TRIGGER ON TABLE public.actividad_progreso TO "service_role";
+GRANT TRUNCATE ON TABLE public.actividad_progreso TO "service_role";
+GRANT UPDATE ON TABLE public.actividad_progreso TO "service_role";
+REVOKE ALL ON TABLE public.actividades FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.actividades TO "authenticated";
+GRANT INSERT ON TABLE public.actividades TO "authenticated";
+GRANT MAINTAIN ON TABLE public.actividades TO "authenticated";
+GRANT REFERENCES ON TABLE public.actividades TO "authenticated";
+GRANT SELECT ON TABLE public.actividades TO "authenticated";
+GRANT TRIGGER ON TABLE public.actividades TO "authenticated";
+GRANT TRUNCATE ON TABLE public.actividades TO "authenticated";
+GRANT UPDATE ON TABLE public.actividades TO "authenticated";
+GRANT DELETE ON TABLE public.actividades TO "service_role";
+GRANT INSERT ON TABLE public.actividades TO "service_role";
+GRANT MAINTAIN ON TABLE public.actividades TO "service_role";
+GRANT REFERENCES ON TABLE public.actividades TO "service_role";
+GRANT SELECT ON TABLE public.actividades TO "service_role";
+GRANT TRIGGER ON TABLE public.actividades TO "service_role";
+GRANT TRUNCATE ON TABLE public.actividades TO "service_role";
+GRANT UPDATE ON TABLE public.actividades TO "service_role";
+REVOKE ALL ON TABLE public.admin_logs FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON TABLE public.admin_logs TO "authenticated";
+GRANT DELETE ON TABLE public.admin_logs TO "service_role";
+GRANT INSERT ON TABLE public.admin_logs TO "service_role";
+GRANT MAINTAIN ON TABLE public.admin_logs TO "service_role";
+GRANT REFERENCES ON TABLE public.admin_logs TO "service_role";
+GRANT SELECT ON TABLE public.admin_logs TO "service_role";
+GRANT TRIGGER ON TABLE public.admin_logs TO "service_role";
+GRANT TRUNCATE ON TABLE public.admin_logs TO "service_role";
+GRANT UPDATE ON TABLE public.admin_logs TO "service_role";
+REVOKE ALL ON TABLE public.archivos_libro FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON TABLE public.archivos_libro TO "authenticated";
+GRANT DELETE ON TABLE public.archivos_libro TO "service_role";
+GRANT INSERT ON TABLE public.archivos_libro TO "service_role";
+GRANT MAINTAIN ON TABLE public.archivos_libro TO "service_role";
+GRANT REFERENCES ON TABLE public.archivos_libro TO "service_role";
+GRANT SELECT ON TABLE public.archivos_libro TO "service_role";
+GRANT TRIGGER ON TABLE public.archivos_libro TO "service_role";
+GRANT TRUNCATE ON TABLE public.archivos_libro TO "service_role";
+GRANT UPDATE ON TABLE public.archivos_libro TO "service_role";
+REVOKE ALL ON TABLE public.clase_libros FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.clase_libros TO "authenticated";
+GRANT INSERT ON TABLE public.clase_libros TO "authenticated";
+GRANT MAINTAIN ON TABLE public.clase_libros TO "authenticated";
+GRANT REFERENCES ON TABLE public.clase_libros TO "authenticated";
+GRANT SELECT ON TABLE public.clase_libros TO "authenticated";
+GRANT TRIGGER ON TABLE public.clase_libros TO "authenticated";
+GRANT TRUNCATE ON TABLE public.clase_libros TO "authenticated";
+GRANT UPDATE ON TABLE public.clase_libros TO "authenticated";
+GRANT DELETE ON TABLE public.clase_libros TO "service_role";
+GRANT INSERT ON TABLE public.clase_libros TO "service_role";
+GRANT MAINTAIN ON TABLE public.clase_libros TO "service_role";
+GRANT REFERENCES ON TABLE public.clase_libros TO "service_role";
+GRANT SELECT ON TABLE public.clase_libros TO "service_role";
+GRANT TRIGGER ON TABLE public.clase_libros TO "service_role";
+GRANT TRUNCATE ON TABLE public.clase_libros TO "service_role";
+GRANT UPDATE ON TABLE public.clase_libros TO "service_role";
+REVOKE ALL ON TABLE public.clases FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.clases TO "authenticated";
+GRANT INSERT ON TABLE public.clases TO "authenticated";
+GRANT MAINTAIN ON TABLE public.clases TO "authenticated";
+GRANT REFERENCES ON TABLE public.clases TO "authenticated";
+GRANT SELECT ON TABLE public.clases TO "authenticated";
+GRANT TRIGGER ON TABLE public.clases TO "authenticated";
+GRANT TRUNCATE ON TABLE public.clases TO "authenticated";
+GRANT UPDATE ON TABLE public.clases TO "authenticated";
+GRANT DELETE ON TABLE public.clases TO "service_role";
+GRANT INSERT ON TABLE public.clases TO "service_role";
+GRANT MAINTAIN ON TABLE public.clases TO "service_role";
+GRANT REFERENCES ON TABLE public.clases TO "service_role";
+GRANT SELECT ON TABLE public.clases TO "service_role";
+GRANT TRIGGER ON TABLE public.clases TO "service_role";
+GRANT TRUNCATE ON TABLE public.clases TO "service_role";
+GRANT UPDATE ON TABLE public.clases TO "service_role";
+REVOKE ALL ON TABLE public.escuela_libros FROM PUBLIC, anon, authenticated, service_role;
+GRANT MAINTAIN ON TABLE public.escuela_libros TO "authenticated";
+GRANT REFERENCES ON TABLE public.escuela_libros TO "authenticated";
+GRANT SELECT ON TABLE public.escuela_libros TO "authenticated";
+GRANT TRIGGER ON TABLE public.escuela_libros TO "authenticated";
+GRANT TRUNCATE ON TABLE public.escuela_libros TO "authenticated";
+GRANT UPDATE ON TABLE public.escuela_libros TO "authenticated";
+GRANT DELETE ON TABLE public.escuela_libros TO "service_role";
+GRANT INSERT ON TABLE public.escuela_libros TO "service_role";
+GRANT MAINTAIN ON TABLE public.escuela_libros TO "service_role";
+GRANT REFERENCES ON TABLE public.escuela_libros TO "service_role";
+GRANT SELECT ON TABLE public.escuela_libros TO "service_role";
+GRANT TRIGGER ON TABLE public.escuela_libros TO "service_role";
+GRANT TRUNCATE ON TABLE public.escuela_libros TO "service_role";
+GRANT UPDATE ON TABLE public.escuela_libros TO "service_role";
+REVOKE ALL ON TABLE public.escuelas FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.escuelas TO "authenticated";
+GRANT MAINTAIN ON TABLE public.escuelas TO "authenticated";
+GRANT REFERENCES ON TABLE public.escuelas TO "authenticated";
+GRANT SELECT ON TABLE public.escuelas TO "authenticated";
+GRANT TRIGGER ON TABLE public.escuelas TO "authenticated";
+GRANT TRUNCATE ON TABLE public.escuelas TO "authenticated";
+GRANT DELETE ON TABLE public.escuelas TO "service_role";
+GRANT INSERT ON TABLE public.escuelas TO "service_role";
+GRANT MAINTAIN ON TABLE public.escuelas TO "service_role";
+GRANT REFERENCES ON TABLE public.escuelas TO "service_role";
+GRANT SELECT ON TABLE public.escuelas TO "service_role";
+GRANT TRIGGER ON TABLE public.escuelas TO "service_role";
+GRANT TRUNCATE ON TABLE public.escuelas TO "service_role";
+GRANT UPDATE ON TABLE public.escuelas TO "service_role";
+REVOKE ALL ON TABLE public.grados FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.grados TO "authenticated";
+GRANT INSERT ON TABLE public.grados TO "authenticated";
+GRANT MAINTAIN ON TABLE public.grados TO "authenticated";
+GRANT REFERENCES ON TABLE public.grados TO "authenticated";
+GRANT SELECT ON TABLE public.grados TO "authenticated";
+GRANT TRIGGER ON TABLE public.grados TO "authenticated";
+GRANT TRUNCATE ON TABLE public.grados TO "authenticated";
+GRANT UPDATE ON TABLE public.grados TO "authenticated";
+GRANT DELETE ON TABLE public.grados TO "service_role";
+GRANT INSERT ON TABLE public.grados TO "service_role";
+GRANT MAINTAIN ON TABLE public.grados TO "service_role";
+GRANT REFERENCES ON TABLE public.grados TO "service_role";
+GRANT SELECT ON TABLE public.grados TO "service_role";
+GRANT TRIGGER ON TABLE public.grados TO "service_role";
+GRANT TRUNCATE ON TABLE public.grados TO "service_role";
+GRANT UPDATE ON TABLE public.grados TO "service_role";
+REVOKE ALL ON TABLE public.inscripciones FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.inscripciones TO "authenticated";
+GRANT MAINTAIN ON TABLE public.inscripciones TO "authenticated";
+GRANT REFERENCES ON TABLE public.inscripciones TO "authenticated";
+GRANT SELECT ON TABLE public.inscripciones TO "authenticated";
+GRANT TRIGGER ON TABLE public.inscripciones TO "authenticated";
+GRANT TRUNCATE ON TABLE public.inscripciones TO "authenticated";
+GRANT UPDATE ON TABLE public.inscripciones TO "authenticated";
+GRANT DELETE ON TABLE public.inscripciones TO "service_role";
+GRANT INSERT ON TABLE public.inscripciones TO "service_role";
+GRANT MAINTAIN ON TABLE public.inscripciones TO "service_role";
+GRANT REFERENCES ON TABLE public.inscripciones TO "service_role";
+GRANT SELECT ON TABLE public.inscripciones TO "service_role";
+GRANT TRIGGER ON TABLE public.inscripciones TO "service_role";
+GRANT TRUNCATE ON TABLE public.inscripciones TO "service_role";
+GRANT UPDATE ON TABLE public.inscripciones TO "service_role";
+REVOKE ALL ON TABLE public.intentos_actividad FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.intentos_actividad TO "service_role";
+GRANT INSERT ON TABLE public.intentos_actividad TO "service_role";
+GRANT MAINTAIN ON TABLE public.intentos_actividad TO "service_role";
+GRANT REFERENCES ON TABLE public.intentos_actividad TO "service_role";
+GRANT SELECT ON TABLE public.intentos_actividad TO "service_role";
+GRANT TRIGGER ON TABLE public.intentos_actividad TO "service_role";
+GRANT TRUNCATE ON TABLE public.intentos_actividad TO "service_role";
+GRANT UPDATE ON TABLE public.intentos_actividad TO "service_role";
+REVOKE ALL ON TABLE public.intentos_clase FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.intentos_clase TO "service_role";
+GRANT INSERT ON TABLE public.intentos_clase TO "service_role";
+GRANT MAINTAIN ON TABLE public.intentos_clase TO "service_role";
+GRANT REFERENCES ON TABLE public.intentos_clase TO "service_role";
+GRANT SELECT ON TABLE public.intentos_clase TO "service_role";
+GRANT TRIGGER ON TABLE public.intentos_clase TO "service_role";
+GRANT TRUNCATE ON TABLE public.intentos_clase TO "service_role";
+GRANT UPDATE ON TABLE public.intentos_clase TO "service_role";
+REVOKE ALL ON TABLE public.intentos_token FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.intentos_token TO "service_role";
+GRANT INSERT ON TABLE public.intentos_token TO "service_role";
+GRANT MAINTAIN ON TABLE public.intentos_token TO "service_role";
+GRANT REFERENCES ON TABLE public.intentos_token TO "service_role";
+GRANT SELECT ON TABLE public.intentos_token TO "service_role";
+GRANT TRIGGER ON TABLE public.intentos_token TO "service_role";
+GRANT TRUNCATE ON TABLE public.intentos_token TO "service_role";
+GRANT UPDATE ON TABLE public.intentos_token TO "service_role";
+REVOKE ALL ON TABLE public.intentos_token_anonimos FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.intentos_token_anonimos TO "service_role";
+GRANT INSERT ON TABLE public.intentos_token_anonimos TO "service_role";
+GRANT MAINTAIN ON TABLE public.intentos_token_anonimos TO "service_role";
+GRANT REFERENCES ON TABLE public.intentos_token_anonimos TO "service_role";
+GRANT SELECT ON TABLE public.intentos_token_anonimos TO "service_role";
+GRANT TRIGGER ON TABLE public.intentos_token_anonimos TO "service_role";
+GRANT TRUNCATE ON TABLE public.intentos_token_anonimos TO "service_role";
+GRANT UPDATE ON TABLE public.intentos_token_anonimos TO "service_role";
+REVOKE ALL ON TABLE public.libro_activaciones FROM PUBLIC, anon, authenticated, service_role;
+GRANT MAINTAIN ON TABLE public.libro_activaciones TO "authenticated";
+GRANT REFERENCES ON TABLE public.libro_activaciones TO "authenticated";
+GRANT SELECT ON TABLE public.libro_activaciones TO "authenticated";
+GRANT TRIGGER ON TABLE public.libro_activaciones TO "authenticated";
+GRANT TRUNCATE ON TABLE public.libro_activaciones TO "authenticated";
+GRANT DELETE ON TABLE public.libro_activaciones TO "service_role";
+GRANT INSERT ON TABLE public.libro_activaciones TO "service_role";
+GRANT MAINTAIN ON TABLE public.libro_activaciones TO "service_role";
+GRANT REFERENCES ON TABLE public.libro_activaciones TO "service_role";
+GRANT SELECT ON TABLE public.libro_activaciones TO "service_role";
+GRANT TRIGGER ON TABLE public.libro_activaciones TO "service_role";
+GRANT TRUNCATE ON TABLE public.libro_activaciones TO "service_role";
+GRANT UPDATE ON TABLE public.libro_activaciones TO "service_role";
+REVOKE ALL ON TABLE public.libros FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.libros TO "authenticated";
+GRANT MAINTAIN ON TABLE public.libros TO "authenticated";
+GRANT REFERENCES ON TABLE public.libros TO "authenticated";
+GRANT SELECT ON TABLE public.libros TO "authenticated";
+GRANT TRIGGER ON TABLE public.libros TO "authenticated";
+GRANT TRUNCATE ON TABLE public.libros TO "authenticated";
+GRANT DELETE ON TABLE public.libros TO "service_role";
+GRANT INSERT ON TABLE public.libros TO "service_role";
+GRANT MAINTAIN ON TABLE public.libros TO "service_role";
+GRANT REFERENCES ON TABLE public.libros TO "service_role";
+GRANT SELECT ON TABLE public.libros TO "service_role";
+GRANT TRIGGER ON TABLE public.libros TO "service_role";
+GRANT TRUNCATE ON TABLE public.libros TO "service_role";
+GRANT UPDATE ON TABLE public.libros TO "service_role";
+REVOKE ALL ON TABLE public.limites_progreso FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.limites_progreso TO "service_role";
+GRANT INSERT ON TABLE public.limites_progreso TO "service_role";
+GRANT MAINTAIN ON TABLE public.limites_progreso TO "service_role";
+GRANT REFERENCES ON TABLE public.limites_progreso TO "service_role";
+GRANT SELECT ON TABLE public.limites_progreso TO "service_role";
+GRANT TRIGGER ON TABLE public.limites_progreso TO "service_role";
+GRANT TRUNCATE ON TABLE public.limites_progreso TO "service_role";
+GRANT UPDATE ON TABLE public.limites_progreso TO "service_role";
+REVOKE ALL ON TABLE public.profiles FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.profiles TO "authenticated";
+GRANT MAINTAIN ON TABLE public.profiles TO "authenticated";
+GRANT REFERENCES ON TABLE public.profiles TO "authenticated";
+GRANT SELECT ON TABLE public.profiles TO "authenticated";
+GRANT TRIGGER ON TABLE public.profiles TO "authenticated";
+GRANT TRUNCATE ON TABLE public.profiles TO "authenticated";
+GRANT DELETE ON TABLE public.profiles TO "service_role";
+GRANT INSERT ON TABLE public.profiles TO "service_role";
+GRANT MAINTAIN ON TABLE public.profiles TO "service_role";
+GRANT REFERENCES ON TABLE public.profiles TO "service_role";
+GRANT SELECT ON TABLE public.profiles TO "service_role";
+GRANT TRIGGER ON TABLE public.profiles TO "service_role";
+GRANT TRUNCATE ON TABLE public.profiles TO "service_role";
+GRANT UPDATE ON TABLE public.profiles TO "service_role";
+REVOKE ALL ON TABLE public.progreso FROM PUBLIC, anon, authenticated, service_role;
+GRANT MAINTAIN ON TABLE public.progreso TO "authenticated";
+GRANT REFERENCES ON TABLE public.progreso TO "authenticated";
+GRANT SELECT ON TABLE public.progreso TO "authenticated";
+GRANT TRIGGER ON TABLE public.progreso TO "authenticated";
+GRANT TRUNCATE ON TABLE public.progreso TO "authenticated";
+GRANT DELETE ON TABLE public.progreso TO "service_role";
+GRANT INSERT ON TABLE public.progreso TO "service_role";
+GRANT MAINTAIN ON TABLE public.progreso TO "service_role";
+GRANT REFERENCES ON TABLE public.progreso TO "service_role";
+GRANT SELECT ON TABLE public.progreso TO "service_role";
+GRANT TRIGGER ON TABLE public.progreso TO "service_role";
+GRANT TRUNCATE ON TABLE public.progreso TO "service_role";
+GRANT UPDATE ON TABLE public.progreso TO "service_role";
+REVOKE ALL ON TABLE public.progreso_clase FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.progreso_clase TO "authenticated";
+GRANT INSERT ON TABLE public.progreso_clase TO "authenticated";
+GRANT MAINTAIN ON TABLE public.progreso_clase TO "authenticated";
+GRANT REFERENCES ON TABLE public.progreso_clase TO "authenticated";
+GRANT SELECT ON TABLE public.progreso_clase TO "authenticated";
+GRANT TRIGGER ON TABLE public.progreso_clase TO "authenticated";
+GRANT TRUNCATE ON TABLE public.progreso_clase TO "authenticated";
+GRANT UPDATE ON TABLE public.progreso_clase TO "authenticated";
+GRANT DELETE ON TABLE public.progreso_clase TO "service_role";
+GRANT INSERT ON TABLE public.progreso_clase TO "service_role";
+GRANT MAINTAIN ON TABLE public.progreso_clase TO "service_role";
+GRANT REFERENCES ON TABLE public.progreso_clase TO "service_role";
+GRANT SELECT ON TABLE public.progreso_clase TO "service_role";
+GRANT TRIGGER ON TABLE public.progreso_clase TO "service_role";
+GRANT TRUNCATE ON TABLE public.progreso_clase TO "service_role";
+GRANT UPDATE ON TABLE public.progreso_clase TO "service_role";
+REVOKE ALL ON TABLE public.respuestas FROM PUBLIC, anon, authenticated, service_role;
+GRANT MAINTAIN ON TABLE public.respuestas TO "authenticated";
+GRANT REFERENCES ON TABLE public.respuestas TO "authenticated";
+GRANT SELECT ON TABLE public.respuestas TO "authenticated";
+GRANT TRIGGER ON TABLE public.respuestas TO "authenticated";
+GRANT TRUNCATE ON TABLE public.respuestas TO "authenticated";
+GRANT DELETE ON TABLE public.respuestas TO "service_role";
+GRANT INSERT ON TABLE public.respuestas TO "service_role";
+GRANT MAINTAIN ON TABLE public.respuestas TO "service_role";
+GRANT REFERENCES ON TABLE public.respuestas TO "service_role";
+GRANT SELECT ON TABLE public.respuestas TO "service_role";
+GRANT TRIGGER ON TABLE public.respuestas TO "service_role";
+GRANT TRUNCATE ON TABLE public.respuestas TO "service_role";
+GRANT UPDATE ON TABLE public.respuestas TO "service_role";
+REVOKE ALL ON TABLE public.superadministradores FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON TABLE public.superadministradores TO "authenticated";
+GRANT DELETE ON TABLE public.superadministradores TO "service_role";
+GRANT INSERT ON TABLE public.superadministradores TO "service_role";
+GRANT MAINTAIN ON TABLE public.superadministradores TO "service_role";
+GRANT REFERENCES ON TABLE public.superadministradores TO "service_role";
+GRANT SELECT ON TABLE public.superadministradores TO "service_role";
+GRANT TRIGGER ON TABLE public.superadministradores TO "service_role";
+GRANT TRUNCATE ON TABLE public.superadministradores TO "service_role";
+GRANT UPDATE ON TABLE public.superadministradores TO "service_role";
+REVOKE ALL ON TABLE public.tokens FROM PUBLIC, anon, authenticated, service_role;
+GRANT DELETE ON TABLE public.tokens TO "authenticated";
+GRANT MAINTAIN ON TABLE public.tokens TO "authenticated";
+GRANT REFERENCES ON TABLE public.tokens TO "authenticated";
+GRANT SELECT ON TABLE public.tokens TO "authenticated";
+GRANT TRIGGER ON TABLE public.tokens TO "authenticated";
+GRANT TRUNCATE ON TABLE public.tokens TO "authenticated";
+GRANT DELETE ON TABLE public.tokens TO "service_role";
+GRANT INSERT ON TABLE public.tokens TO "service_role";
+GRANT MAINTAIN ON TABLE public.tokens TO "service_role";
+GRANT REFERENCES ON TABLE public.tokens TO "service_role";
+GRANT SELECT ON TABLE public.tokens TO "service_role";
+GRANT TRIGGER ON TABLE public.tokens TO "service_role";
+GRANT TRUNCATE ON TABLE public.tokens TO "service_role";
+GRANT UPDATE ON TABLE public.tokens TO "service_role";
+REVOKE ALL ON TABLE public.unidades FROM PUBLIC, anon, authenticated, service_role;
+GRANT MAINTAIN ON TABLE public.unidades TO "authenticated";
+GRANT REFERENCES ON TABLE public.unidades TO "authenticated";
+GRANT SELECT ON TABLE public.unidades TO "authenticated";
+GRANT TRIGGER ON TABLE public.unidades TO "authenticated";
+GRANT TRUNCATE ON TABLE public.unidades TO "authenticated";
+GRANT DELETE ON TABLE public.unidades TO "service_role";
+GRANT INSERT ON TABLE public.unidades TO "service_role";
+GRANT MAINTAIN ON TABLE public.unidades TO "service_role";
+GRANT REFERENCES ON TABLE public.unidades TO "service_role";
+GRANT SELECT ON TABLE public.unidades TO "service_role";
+GRANT TRIGGER ON TABLE public.unidades TO "service_role";
+GRANT TRUNCATE ON TABLE public.unidades TO "service_role";
+GRANT UPDATE ON TABLE public.unidades TO "service_role";
+COMMIT;
