@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { supabase } from '../lib/supabase'
 
 export async function prevalidarToken(token, captchaToken) {
@@ -5,7 +6,7 @@ export async function prevalidarToken(token, captchaToken) {
     body: { token, captchaToken },
   })
   if (error) {
-    console.warn('[Libelula] prevalidar-token falló:', error.message)
+    registrarError("prevalidar-token falló:", error, 'warn')
     return { valido: false, motivo: 'error_servidor' }
   }
   return data
@@ -14,7 +15,7 @@ export async function prevalidarToken(token, captchaToken) {
 export async function verificarToken(token) {
   const { data, error } = await supabase.rpc('verificar_token', { p_token: token })
   if (error) {
-    console.warn('[Libelula] verificar_token falló:', error.code, error.message)
+    registrarError("verificar_token falló:", error, 'warn')
     return { valido: false, motivo: 'error_servidor' }
   }
   return data

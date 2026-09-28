@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -56,7 +57,7 @@ export default function Inicio() {
         .eq('id', userId)
         .single()
       setPerfil(data)
-    } catch (err) { console.error('cargarPerfil:', err) }
+    } catch (err) { registrarError("cargarPerfil:", err) }
   }
 
   async function cargarLibros() {
@@ -69,7 +70,7 @@ export default function Inicio() {
         })
       )
       setLibros(librosConPortadas)
-    } catch (err) { console.error('cargarLibros:', err) }
+    } catch (err) { registrarError("cargarLibros:", err) }
   }
 
   function ocultarLibro(libroId) {
@@ -86,7 +87,7 @@ export default function Inicio() {
     try {
       const clasesData = await getClasesEstudiante(userId)
       setClases(clasesData)
-    } catch (err) { console.error('cargarClases:', err) }
+    } catch (err) { registrarError("cargarClases:", err) }
   }
 
   async function handleActivar() {

@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -40,7 +41,7 @@ export default function NuevaClase() {
       ])
       setGrados(gradosData || [])
       setTodosLosLibros(libros)
-    } catch (err) { console.error(err) }
+    } catch (err) { registrarError("NuevaClase", err) }
     finally { setCargandoLibros(false) }
   }
 
@@ -70,7 +71,7 @@ export default function NuevaClase() {
       await crearClase({ nombre: nombre.trim(), emoji, gradoId: parseInt(gradoId), libros: librosSeleccionados })
       navigate('/panel-docente')
     } catch (err) {
-      console.error(err)
+      registrarError("NuevaClase", err)
       const mensajes = {
         acceso_denegado: 'Tu sesión no tiene permisos para crear clases. Vuelve a iniciar sesión o contacta al administrador.',
         docente_sin_escuela: 'Tu cuenta no tiene una escuela asignada. Contacta a tu institución.',

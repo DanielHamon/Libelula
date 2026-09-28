@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { buscarClasePorCodigo, unirseAClase } from '../services/clases.service'
@@ -36,7 +37,7 @@ export default function UnirseClase() {
       if (!claseEncontrada) { setError('Esta clase está inactiva o no disponible.'); return }
       setClase(claseEncontrada)
     } catch (err) {
-      console.error(err)
+      registrarError("UnirseClase", err)
       setError('Ocurrió un error al buscar la clase. Intenta de nuevo.')
     } finally {
       setBuscando(false)
@@ -52,7 +53,7 @@ export default function UnirseClase() {
       setExito(true)
       setTimeout(() => navigate('/inicio'), 2200)
     } catch (err) {
-      console.error(err)
+      registrarError("UnirseClase", err)
       setError('Error al unirse a la clase. Intenta de nuevo.')
     } finally {
       setUniendose(false)

@@ -1,18 +1,14 @@
+import { C, btnP, btnS, arrBtn } from './activities/activityStyles'
+export { C } from './activities/activityStyles'
+import { FeedbackBox, AttemptsLeft, MissingField } from './activities/ActivityFeedback'
+import TarjetasVolteables from './activities/TarjetasVolteables'
+import SeleccionMultiple from './activities/SeleccionMultiple'
+import { registrarError } from '../lib/diagnostics'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
 // ── Palette ───────────────────────────────────────────────────────────────────
-export const C = {
-  pink: '#e91e8c', pinkMid: '#f48fb1', pinkLight: '#fce4ec',
-  purple: '#7b1fa2', purpleLight: '#f3e5f5',
-  green: '#4caf50', greenLight: '#e8f5e9',
-  red: '#f44336', redLight: '#ffebee',
-  blue: '#1e88e5', blueLight: '#e3f2fd',
-  teal: '#00897b', tealLight: '#e0f2f1',
-  orange: '#e65100', orangeLight: '#fff3e0',
-  text: '#2d2d2d', textMuted: '#757575',
-  bg: '#fff9fb', white: '#ffffff', border: '#f0e0ea',
-}
+
 
 export const TIPO_CONFIG = {
   video:             { icon: '▶️', label: 'Video',              color: C.blue,   bg: C.blueLight   },
@@ -413,7 +409,7 @@ function SopaLetras({ isMobile, onComplete, onAttempt, alreadyComplete, completa
       gameWonRef.current = true
       setGameWon(true)
     } catch (error) {
-      console.error('evaluarIntento sopaLetras:', error)
+      registrarError("evaluarIntento sopaLetras:", error)
       setErrorIntento('No pudimos guardar la sopa de letras. Inténtalo nuevamente.')
     } finally {
       setEnviando(false)
@@ -582,7 +578,7 @@ function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onC
         if (evaluacion.esCorrecta) setCorrectoServidor(true)
         else if (evaluacion.agotado) setAgotado(true)
       } catch (error) {
-        console.error('evaluarIntento clasificacionCategorias:', error)
+        registrarError("evaluarIntento clasificacionCategorias:", error)
         setErrorIntento('No pudimos verificar la clasificación. Inténtalo de nuevo.')
       } finally {
         setEnviando(false)
@@ -838,7 +834,7 @@ function SepararSilabas({ actividadId, instruccion, pista, palabras, isMobile, o
           { p_actividad_id: actividadId, p_respuesta: payload }
         )
         if (detalleError) {
-          console.error('evaluarDetalle separarSilabas:', detalleError)
+          registrarError("evaluarDetalle separarSilabas:", detalleError)
           if (evaluacion.esCorrecta) {
             setDetalleServidor(Object.fromEntries(resultados.map(item => [item.id, {
               separacionValida: true,
@@ -854,7 +850,7 @@ function SepararSilabas({ actividadId, instruccion, pista, palabras, isMobile, o
           ))
         }
       } catch (error) {
-        console.error('evaluarIntento separarSilabas:', error)
+        registrarError("evaluarIntento separarSilabas:", error)
         setErrorIntento('No pudimos verificar las sílabas. Inténtalo nuevamente.')
       } finally {
         setEnviando(false)
@@ -1061,7 +1057,7 @@ function Acrostico({ actividadId, palabra, letras, lineas, instruccion, pista, b
         if (evaluacion.esCorrecta) setCorrectoServidor(true)
         else if (evaluacion.agotado) setAgotado(true)
       } catch (error) {
-        console.error('evaluarIntento acrostico:', error)
+        registrarError("evaluarIntento acrostico:", error)
         setErrorIntento('No pudimos verificar el acróstico. Inténtalo nuevamente.')
       } finally {
         setEnviando(false)
@@ -1303,7 +1299,7 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
       else if (evaluacion.agotado) setResultadoServidor('agotado')
       else setResultadoServidor('incorrecto')
     } catch (error) {
-      console.error('evaluarIntento crucigrama:', error)
+      registrarError("evaluarIntento crucigrama:", error)
       setErrorIntento('No pudimos verificar el crucigrama. Inténtalo nuevamente.')
     } finally {
       setEnviando(false)
@@ -1756,61 +1752,7 @@ function MiniJuegoConteo({
 }
 
 // ── Tarjetas volteables ───────────────────────────────────────────────────────
-function TarjetasVolteables({ instruccion, tarjetas, textoFrente = 'Haz clic para descubrir', mensajeFinal = '¡Descubriste todas las tarjetas!', onComplete, completada }) {
-  const cards = tarjetas.map((card, idx) => ({
-    id: String(card.id ?? `tarjeta-${idx + 1}`),
-    emoji: card.emoji || card.icono || '❓',
-    frente: card.frente || card.titulo || card.nombre || textoFrente,
-    reverso: card.reverso || card.texto || card.descripcion || '',
-    color: card.color || [C.purple, C.blue, C.teal, C.orange, C.pink][idx % 5],
-  })).filter(card => card.frente && card.reverso)
-  const [volteadas, setVolteadas] = useState(() => new Set())
-  const [descubiertas, setDescubiertas] = useState(() => new Set())
-  const firedRef = useRef(false)
 
-  function voltear(card) {
-    if (completada) return
-    const nextFlipped = new Set(volteadas)
-    nextFlipped.has(card.id) ? nextFlipped.delete(card.id) : nextFlipped.add(card.id)
-    setVolteadas(nextFlipped)
-    if (!nextFlipped.has(card.id)) return
-    const nextDiscovered = new Set(descubiertas); nextDiscovered.add(card.id); setDescubiertas(nextDiscovered)
-    if (nextDiscovered.size === cards.length && !firedRef.current) {
-      firedRef.current = true
-      onComplete({ tarjetasDescubiertas: cards.map(item => ({ id: item.id, frente: item.frente })), total: cards.length }, null)
-    }
-  }
-
-  if (cards.length === 0) return <MissingField campo="tarjetas" />
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {instruccion && <p style={{ fontSize: 15, fontWeight: 700, color: C.text, lineHeight: 1.5, margin: 0 }}>{instruccion}</p>}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
-        {cards.map(card => {
-          const flipped = volteadas.has(card.id)
-          return (
-            <button key={card.id} type="button" onClick={() => voltear(card)} aria-pressed={flipped} aria-label={`${flipped ? 'Ocultar' : 'Descubrir'} ${card.frente}`} style={{ height: 175, padding: 0, border: 'none', background: 'transparent', perspective: 900, cursor: completada ? 'default' : 'pointer', fontFamily: 'Nunito' }}>
-              <span style={{ position: 'relative', display: 'block', width: '100%', height: '100%', transformStyle: 'preserve-3d', transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)', transition: 'transform 500ms cubic-bezier(.2,.7,.2,1)' }}>
-                <span style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', borderRadius: 16, padding: 16, boxSizing: 'border-box', background: `linear-gradient(145deg, ${card.color}, ${card.color}CC)`, color: '#fff', border: '3px solid #fff', boxShadow: `0 7px 20px ${card.color}45`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 38 }}>{card.emoji}</span>
-                  <span style={{ fontSize: 16, fontWeight: 900 }}>{card.frente}</span>
-                  <span style={{ fontSize: 10, fontWeight: 800, opacity: .85 }}>Toca para voltear</span>
-                </span>
-                <span style={{ position: 'absolute', inset: 0, backfaceVisibility: 'hidden', transform: 'rotateY(180deg)', borderRadius: 16, padding: 16, boxSizing: 'border-box', background: '#fff', color: C.text, border: `3px solid ${card.color}`, boxShadow: `0 7px 20px ${card.color}30`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 9 }}>
-                  <span style={{ fontSize: 30 }}>{card.emoji}</span>
-                  <span style={{ color: card.color, fontSize: 14, fontWeight: 900 }}>{card.frente}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, lineHeight: 1.4 }}>{card.reverso}</span>
-                </span>
-              </span>
-            </button>
-          )
-        })}
-      </div>
-      <span style={{ fontSize: 13, fontWeight: 800, color: descubiertas.size === cards.length ? C.green : C.textMuted }}>Descubiertas: {descubiertas.size} / {cards.length}</span>
-      {(completada || descubiertas.size === cards.length) && <FeedbackBox ok msg={mensajeFinal} />}
-    </div>
-  )
-}
 
 // ── Mezcla y pintura guiada por colores ───────────────────────────────────────
 function MezclaPinturaGuiada({ actividadId, instruccion, colores, mezclas, numMezclas = 1, mensajeFinal = '¡Descubriste una nueva mezcla!', pregunta = '', placeholder = 'Escribe tu respuesta...', onComplete, completada }) {
@@ -1974,7 +1916,7 @@ function SelectorEmocionColor({
           setResultado('error')
         }
       } catch (error) {
-        console.error('evaluarIntento selectorEmocionColor:', error)
+        registrarError("evaluarIntento selectorEmocionColor:", error)
         setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
       } finally {
         setEnviando(false)
@@ -2172,251 +2114,7 @@ function ExploracionInteractiva({
 }
 
 // ── Selección múltiple ────────────────────────────────────────────────────────
-function SeleccionMultiple({ pregunta, opciones, pista, estilo = 'lista', retroalimentacion, retroalimentacionError, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2, primaryColor = C.pink }) {
-  const [seleccionadas, setSeleccionadas] = useState(() => new Set(
-    savedAnswer?.seleccionadasIndices
-      ?? opciones.map((op, idx) => savedAnswer?.seleccionadas?.includes(op.texto) ? idx : null).filter(idx => idx != null)
-  ))
-  const [resultado, setResultado] = useState(null)
-  const [intentos, setIntentos] = useState(0)
-  const [showPista, setShowPista] = useState(false)
-  const [resultadosChip, setResultadosChip] = useState({})
-  const [enviando, setEnviando] = useState(false)
-  const [errorIntento, setErrorIntento] = useState('')
-  const firedRef = useRef(false)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
 
-  const correctas = opciones.map((op, idx) => (op.esCorrecta ? idx : null)).filter(idx => idx !== null)
-  const selIdxs = [...seleccionadas]
-  const payload = {
-    seleccionadas: selIdxs.map(idx => opciones[idx]?.texto || ''),
-    correctas: correctas.map(idx => opciones[idx]?.texto || ''),
-    opcionElegida: selIdxs.map(idx => opciones[idx]?.texto || '').join(' | '),
-    seleccionadasIndices: selIdxs,
-    respuestas: opciones.map((op, idx) => ({
-      texto: op.texto,
-      esCorrecta: !!op.esCorrecta,
-      seleccionada: seleccionadas.has(idx),
-      respondio: seleccionadas.has(idx),
-    })),
-  }
-  const allOk = opciones.length > 0 && opciones.every((op, idx) => !!op.esCorrecta === seleccionadas.has(idx))
-  const serverMode = typeof onAttempt === 'function'
-  const isLocked = enviando || resultado === 'correct' || resultado === 'agotado' || completada
-  const restantes = maxIntentos - intentos
-
-  function toggle(idx) {
-    if (isLocked) return
-    if (!serverMode && estilo === 'chips') {
-      if (resultadosChip[idx] === 'ok') return
-      const correcta = !!opciones[idx]?.esCorrecta
-      const nextResultados = { ...resultadosChip, [idx]: correcta ? 'ok' : 'no' }
-      setResultadosChip(nextResultados)
-      if (correcta) {
-        const next = new Set(seleccionadas)
-        next.add(idx)
-        setSeleccionadas(next)
-        const encontroTodas = correctas.length > 0 && correctas.every(correctIndex => next.has(correctIndex))
-        if (encontroTodas) {
-          setResultado('correct')
-          if (!firedRef.current) {
-            firedRef.current = true
-            onCompleteRef.current({
-              seleccionadas: [...next].map(index => opciones[index]?.texto || ''),
-              correctas: correctas.map(index => opciones[index]?.texto || ''),
-              seleccionadasIndices: [...next],
-            }, true)
-          }
-        }
-      } else {
-        const nextIntentos = intentos + 1
-        setIntentos(nextIntentos)
-        if (nextIntentos >= maxIntentos) {
-          setResultado('agotado')
-          if (!firedRef.current) {
-            firedRef.current = true
-            onCompleteRef.current({
-              seleccionadas: [...seleccionadas].map(index => opciones[index]?.texto || ''),
-              correctas: correctas.map(index => opciones[index]?.texto || ''),
-              seleccionadasIndices: [...seleccionadas],
-            }, false)
-          }
-        }
-      }
-      return
-    }
-    setSeleccionadas(prev => {
-      const next = new Set(prev)
-      next.has(idx) ? next.delete(idx) : next.add(idx)
-      return next
-    })
-    if (resultado) setResultado(null)
-  }
-
-  async function verificar() {
-    if (isLocked || firedRef.current) return
-    if (serverMode) {
-      if (seleccionadas.size === 0) return
-      setEnviando(true)
-      setErrorIntento('')
-      try {
-        const respuestaPublica = {
-          seleccionadas: selIdxs.map(idx => opciones[idx]?.texto || ''),
-          opcionElegida: selIdxs.map(idx => opciones[idx]?.texto || '').join(' | '),
-          seleccionadasIndices: selIdxs,
-        }
-        const evaluacion = await onAttempt(respuestaPublica)
-        setIntentos(evaluacion.intentos)
-        if (evaluacion.esCorrecta) {
-          setResultado('correct')
-          firedRef.current = true
-        } else if (evaluacion.agotado) {
-          setResultado('agotado')
-          firedRef.current = true
-        } else {
-          setResultado('wrong')
-        }
-      } catch (error) {
-        console.error('evaluarIntento:', error)
-        setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
-      } finally {
-        setEnviando(false)
-      }
-      return
-    }
-    const ok = allOk
-    setResultado(ok ? 'correct' : 'wrong')
-    if (ok) {
-      firedRef.current = true
-      onCompleteRef.current(payload, true)
-      return
-    }
-    const n = intentos + 1
-    setIntentos(n)
-    if (n >= maxIntentos) {
-      setResultado('agotado')
-      firedRef.current = true
-      onCompleteRef.current(payload, false)
-    }
-  }
-
-  function estadoOpcion(idx) {
-    const sel = seleccionadas.has(idx)
-    if (serverMode) {
-      if (resultado === 'correct') return sel ? 'ok' : null
-      if (resultado === 'wrong' || resultado === 'agotado') return sel ? 'no' : null
-      return sel ? 'sel' : null
-    }
-    const correcta = !!opciones[idx]?.esCorrecta
-    if (resultado === 'correct') return correcta ? 'ok' : null
-    if (resultado === 'wrong' || resultado === 'agotado') {
-      if (sel && correcta) return 'ok'
-      if (sel && !correcta) return 'no'
-      if (!sel && correcta) return 'missed'
-    }
-    return sel ? 'sel' : null
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {pista && (
-        <div style={{ border: '2px solid #FDE047', background: '#FEFCE8', borderRadius: 12, color: '#854D0E', overflow: 'hidden' }}>
-          <button type="button" onClick={() => setShowPista(value => !value)} style={{ width: '100%', border: 'none', background: 'transparent', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', color: 'inherit', fontFamily: 'Nunito', fontWeight: 800, cursor: 'pointer' }}>
-            <span>💡 <span style={{ marginLeft: 8 }}>Pista:</span></span>
-            <span style={{ fontSize: 12 }}>{showPista ? 'Ocultar pista ▲' : 'Ver pista ▼'}</span>
-          </button>
-          {showPista && <div style={{ padding: '0 14px 12px 42px', fontSize: 13, fontWeight: 700 }}>{pista}</div>}
-        </div>
-      )}
-      {pregunta && <p style={{ fontSize: 18, fontWeight: 600, color: C.text, margin: 0, lineHeight: 1.5 }}>{pregunta}</p>}
-      <p style={{ fontSize: 13, fontWeight: 700, color: C.textMuted, margin: 0 }}>
-        {estilo === 'chips' ? 'Selecciona todas las palabras correctas.' : 'Marca todas las opciones correctas y luego verifica.'}
-      </p>
-      <div style={{ display: 'flex', flexDirection: estilo === 'chips' ? 'row' : 'column', flexWrap: estilo === 'chips' ? 'wrap' : 'nowrap', justifyContent: estilo === 'chips' ? 'center' : 'flex-start', gap: estilo === 'chips' ? 9 : 10 }}>
-        {opciones.map((op, idx) => {
-          const estado = estadoOpcion(idx)
-          const ok = estado === 'ok'
-          const bad = estado === 'no'
-          const missed = estado === 'missed'
-          const sel = estado === 'sel'
-          const primaryLight = `${primaryColor}18`
-          const bg = ok ? C.greenLight : bad ? C.redLight : missed ? '#FFF7ED' : sel ? primaryLight : '#fff'
-          const border = ok ? C.green : bad ? C.red : missed ? '#F59E0B' : sel ? primaryColor : primaryLight
-          const badgeBg = ok ? C.green : bad ? C.red : missed ? '#F59E0B' : sel ? primaryColor : primaryLight
-          const badgeColor = ok || bad || missed || sel ? '#fff' : primaryColor
-          if (estilo === 'chips') {
-            const chipOk = serverMode ? ok : resultadosChip[idx] === 'ok'
-            const chipWrong = serverMode ? bad : resultadosChip[idx] === 'no'
-            const chipSelected = serverMode && sel
-            return (
-              <button key={idx} onClick={() => toggle(idx)} style={{
-                padding: '8px 16px', borderRadius: 50,
-                border: `2px solid ${chipOk ? C.green : chipWrong ? C.red : chipSelected ? primaryColor : `${primaryColor}55`}`,
-                background: chipOk ? C.greenLight : chipWrong ? C.redLight : chipSelected ? `${primaryColor}22` : `${primaryColor}0f`,
-                color: chipOk ? C.green : chipWrong ? C.red : primaryColor,
-                cursor: isLocked ? 'default' : 'pointer', fontFamily: 'Nunito',
-                fontSize: 13, fontWeight: 800, textTransform: 'uppercase',
-                transition: 'all 0.15s', transform: chipOk && !isLocked ? 'translateY(-2px)' : 'none',
-                boxShadow: chipOk && !isLocked ? `0 3px 10px ${C.green}25` : 'none',
-              }}>
-                {chipOk ? '✓ ' : chipWrong ? '✗ ' : ''}{op.texto}
-              </button>
-            )
-          }
-          return (
-            <button
-              key={idx}
-              onClick={() => toggle(idx)}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                padding: '14px 16px',
-                borderRadius: 14,
-                border: `2px solid ${border}`,
-                background: bg,
-                cursor: isLocked ? 'default' : 'pointer',
-                textAlign: 'left',
-                fontFamily: 'Nunito',
-                transition: 'all 0.15s',
-                boxShadow: `0 2px 6px ${primaryColor}0f`,
-              }}
-            >
-              <span style={{
-                width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                background: badgeBg, color: badgeColor,
-                fontWeight: 800, fontSize: 14, display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                marginTop: 1,
-              }}>
-                {ok ? '✓' : bad ? '✗' : missed ? '!' : String.fromCharCode(65 + idx)}
-              </span>
-              <span style={{ flex: 1, minWidth: 0 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                  <span style={{ width: 14, height: 14, borderRadius: 3, border: `2px solid ${border}`, background: sel || ok ? border : '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 10, fontWeight: 900, flexShrink: 0 }}>
-                    {sel || ok ? '✓' : ''}
-                  </span>
-                  <span style={{ fontSize: 16, fontWeight: 600, color: ok ? C.green : bad ? C.red : missed ? '#B45309' : C.text, lineHeight: 1.45 }}>
-                    {op.texto}
-                  </span>
-                </span>
-              </span>
-            </button>
-          )
-        })}
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {(serverMode || estilo !== 'chips') && !isLocked && <button onClick={verificar} disabled={seleccionadas.size === 0 || enviando} style={btnP(seleccionadas.size > 0 && !enviando ? primaryColor : C.border)}>{enviando ? 'Verificando…' : 'Verificar ✓'}</button>}
-        {(serverMode || estilo !== 'chips') && resultado === 'wrong' && !isLocked && <button onClick={() => setResultado(null)} style={btnS}>↺ Revisar</button>}
-        <AttemptsLeft restantes={restantes} max={maxIntentos} locked={isLocked} />
-      </div>
-      {resultado === 'correct' && <FeedbackBox ok msg={retroalimentacion || '✅ Seleccionaste todas las respuestas correctas.'} />}
-      {resultado === 'wrong' && <FeedbackBox ok={false} msg={retroalimentacionError || '❌ Revisa todas las opciones correctas antes de volver a verificar.'} />}
-      {resultado === 'agotado' && <FeedbackBox ok={false} msg="Intentos agotados. La actividad quedó registrada." />}
-      {errorIntento && <div role="alert" style={{ color: C.red, fontSize: 13, fontWeight: 700 }}>{errorIntento}</div>}
-    </div>
-  )
-}
 
 // ── Verdadero / Falso ─────────────────────────────────────────────────────────
 function VerdaderoFalso({ afirmaciones, onComplete, onAttempt, completada, savedAnswer, maxIntentos = 2 }) {
@@ -2461,7 +2159,7 @@ function VerdaderoFalso({ afirmaciones, onComplete, onAttempt, completada, saved
       else if (evaluacion.agotado) setResultado('agotado')
       else setResultado('wrong')
     } catch (error) {
-      console.error('evaluarIntento verdaderoFalso:', error)
+      registrarError("evaluarIntento verdaderoFalso:", error)
       setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
     } finally {
       setEnviando(false)
@@ -2538,7 +2236,7 @@ function CompletarPalabras({ texto, respuestas, onComplete, onAttempt, completad
         if (evaluacion.esCorrecta) setCorrectoServidor(true)
         else if (evaluacion.agotado) setAgotado(true)
       } catch (error) {
-        console.error('evaluarIntento completarPalabras:', error)
+        registrarError("evaluarIntento completarPalabras:", error)
         setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
       } finally {
         setEnviando(false)
@@ -2719,7 +2417,7 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
         else if (evaluacion.agotado) setResultado('agotado')
         else setResultado('incorrecto')
       } catch (error) {
-        console.error('evaluarIntento ordenarPalabras:', error)
+        registrarError("evaluarIntento ordenarPalabras:", error)
         setErrorIntento('No pudimos verificar el orden. Inténtalo de nuevo.')
       } finally {
         setEnviando(false)
@@ -2858,7 +2556,7 @@ function OrdenarEventos({ instruccion, eventos, onComplete, onAttempt, completad
         setCorrecto(!!evaluacion.esCorrecta)
         if (evaluacion.agotado) setAgotado(true)
       } catch (error) {
-        console.error('evaluarIntento ordenarEventos:', error)
+        registrarError("evaluarIntento ordenarEventos:", error)
         setErrorIntento('No pudimos verificar el orden. Inténtalo de nuevo.')
       } finally {
         setEnviando(false)
@@ -3125,7 +2823,7 @@ function EmparejarServidor({
       else if (evaluacion.agotado) setResultado('agotado')
       else setResultado('incorrecto')
     } catch (error) {
-      console.error('evaluarIntento emparejar:', error)
+      registrarError("evaluarIntento emparejar:", error)
       setErrorIntento('No pudimos verificar las parejas. Inténtalo de nuevo.')
     } finally {
       setEnviando(false)
@@ -3383,7 +3081,7 @@ function IdentificarActividad({ instruccion, opciones, onComplete, onAttempt, co
         if (evaluacion.esCorrecta) setCorrectoServidor(true)
         else if (evaluacion.agotado) setAgotado(true)
       } catch (error) {
-        console.error('evaluarIntento identificar:', error)
+        registrarError("evaluarIntento identificar:", error)
         setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
       } finally {
         setEnviando(false)
@@ -3548,7 +3246,7 @@ function LineaTiempoEmocional({
       else if (evaluacion.agotado) setResultado('agotado')
       else setResultado('incorrecto')
     } catch (error) {
-      console.error('evaluarIntento lineaTiempoEmocional:', error)
+      registrarError("evaluarIntento lineaTiempoEmocional:", error)
       setErrorIntento('No pudimos verificar tu respuesta. Inténtalo de nuevo.')
     } finally {
       setEnviando(false)
@@ -3802,13 +3500,3 @@ function TermometroEmocional({ actividadId, instruccion, label, emoji, estados, 
 }
 
 // ── Shared UI helpers ─────────────────────────────────────────────────────────
-function btnP(bg) { return { padding: '10px 22px', background: bg, color: '#fff', border: 'none', borderRadius: 50, cursor: bg === C.border ? 'default' : 'pointer', fontFamily: 'Nunito', fontWeight: 800, fontSize: 14 } }
-const btnS = { padding: '10px 22px', background: '#fff', color: C.textMuted, border: `2px solid ${C.border}`, borderRadius: 50, cursor: 'pointer', fontFamily: 'Nunito', fontWeight: 700, fontSize: 13 }
-function arrBtn(disabled, col) { return { width: 22, height: 22, borderRadius: 4, border: 'none', background: disabled ? '#e0e0e0' : col, color: disabled ? '#aaa' : '#fff', cursor: disabled ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, padding: 0 } }
-function FeedbackBox({ ok, msg }) { return <div style={{ background: ok ? C.greenLight : C.redLight, border: `1px solid ${ok ? C.green : C.red}`, borderRadius: 12, padding: '10px 14px', fontSize: 14, fontWeight: 600, color: ok ? '#1a6b1a' : '#a00' }}>{msg}</div> }
-function AttemptsLeft({ restantes, max, locked }) {
-  if (locked || max <= 1) return null
-  const danger = restantes <= 1
-  return <span style={{ fontSize: 12, fontWeight: 700, color: danger ? C.red : '#D97706', background: danger ? C.redLight : '#FEF3C7', borderRadius: 20, padding: '3px 10px', whiteSpace: 'nowrap' }}>🔄 {restantes} intento{restantes !== 1 ? 's' : ''} restante{restantes !== 1 ? 's' : ''}</span>
-}
-function MissingField({ campo }) { return <div style={{ color: C.red, fontSize: 13, background: C.redLight, padding: '8px 12px', borderRadius: 8 }}>Campo faltante: <code>{campo}</code></div> }

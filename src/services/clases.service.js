@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { supabase } from '../lib/supabase'
 
 export async function getClasesDocente(docenteId) {
@@ -135,7 +136,7 @@ export async function crearClase({ nombre, emoji = '🏫', gradoId, libros }) {
     p_grado_id: gradoId,
   })
   if (error) {
-    console.error('[crearClase] RPC crear_clase falló:', {
+    registrarError("[crearClase] RPC crear_clase falló:", {
       code: error.code,
       message: error.message,
       details: error.details,
@@ -154,7 +155,7 @@ export async function crearClase({ nombre, emoji = '🏫', gradoId, libros }) {
     .update({ emoji })
     .eq('id', claseId)
   if (emojiError) {
-    console.error('[crearClase] actualización de emoji falló:', emojiError)
+    registrarError("[crearClase] actualización de emoji falló:", emojiError)
     throw new Error('error_guardar_emoji')
   }
 
@@ -163,7 +164,7 @@ export async function crearClase({ nombre, emoji = '🏫', gradoId, libros }) {
       libros.map(l => ({ clase_id: claseId, libro_id: l.libroId, libro_titulo: l.libroTitulo }))
     )
     if (librosError) {
-      console.error('[crearClase] clase_libros insert falló:', librosError)
+      registrarError("[crearClase] clase_libros insert falló:", librosError)
       throw new Error('error_insertar_libros')
     }
   }

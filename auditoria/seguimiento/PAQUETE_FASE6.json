@@ -1,0 +1,182 @@
+{
+  "base": "623804cfe5def764a883371bfc294ccc295116e1",
+  "estado": "Candidato local verificado; publicación pendiente de autorización",
+  "archivos_sin_manifiesto": 42,
+  "archivos": [
+    {
+      "ruta": "auditoria/pruebas/scripts/25_inactividad_fase6.test.mjs",
+      "sha256": "a90795e987c61a6ba77c7b5b9d670abf509d89105ae6ac662f247a9b342c691f"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/26_hook_inactividad_fase6.test.mjs",
+      "sha256": "526c91ab4b9a4b9c2b89d7e3619565811d3010eb21aedfef07a0818fbedad9e5"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/27_indices_fase6.py",
+      "sha256": "16f614af508dd1617a918716a465c66f0dadfe98f774d2665a91a1811e67cdc4"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/28_resumen_indices_fase6.py",
+      "sha256": "9ef25a7ea54f797d2e0abbf75a3876734ad668ac450f1bde7332398f1856d587"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/29_pdf_access_fase6.test.mjs",
+      "sha256": "127729b18c608684775fa0142103c71b10e12250f89ca0161ae5302eeb3132d0"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/30_firma_pdf_fase6.test.mjs",
+      "sha256": "6091d6eaba2e7de1f8948e8b2e48a0482edc5bc8692183c7c9364b749eb79c2d"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/31_diagnosticos_fase6.test.mjs",
+      "sha256": "70df9af186fc50283b9a1fda7d2723461cc1b8786d228c57c7ac0cd488e41a92"
+    },
+    {
+      "ruta": "auditoria/pruebas/scripts/32_extraccion_fase6.mjs",
+      "sha256": "e2bbcc193d1b0fe8e6302976169dac5c0f7e5cdbf976fb7349a8290fdb638351"
+    },
+    {
+      "ruta": "auditoria/seguimiento/AUD007_INDICES_MEDIDOS.md",
+      "sha256": "798128c248e6666ba85b68ed7cd9046578edab7a2ffdce5fd8c6fbf09498e332"
+    },
+    {
+      "ruta": "auditoria/seguimiento/AUD008_RENOVACION_PDF.md",
+      "sha256": "8c7bc343aa5616005810e15d8f4dc095a6f4393a1149f43d8cc6b1e0046af2cb"
+    },
+    {
+      "ruta": "auditoria/seguimiento/EVIDENCIA_FASE6.json",
+      "sha256": "44ed5d43372f47db1ec490f77f1d92c8cc1a7c7db2470ba4f35d89616d27c52e"
+    },
+    {
+      "ruta": "auditoria/seguimiento/FASE6.md",
+      "sha256": "a5d29c7d7d5f12eea7bcc5bfe6eaae66320fd851f2586cf5ecd58b554b2d7334"
+    },
+    {
+      "ruta": "auditoria/seguimiento/HALLAZGOS_ACTUALES.csv",
+      "sha256": "4844c74cb73e701e27b65c50c9dd87e2a7a3ccd4cd61e9aea5146187abf23449"
+    },
+    {
+      "ruta": "auditoria/seguimiento/REVISION_PAQUETE_FASE6.md",
+      "sha256": "803eb271ba4e7fce0fe6b80f0c73bd6464a9e1998d660f95ca5cdf400384af07"
+    },
+    {
+      "ruta": "src/App.jsx",
+      "sha256": "13bb9040fe6e8942e57138c5a02e075d2037905805f6d62c73774b393a57cc63"
+    },
+    {
+      "ruta": "src/components/ActivityCard.jsx",
+      "sha256": "61348f13efe5297f86345d88379be3a3becce97bf73f9df63a63ce46a689bd7a"
+    },
+    {
+      "ruta": "src/components/InactivityNotice.jsx",
+      "sha256": "35248cd9743853a5706548bfd407b685f0c39d0b53c419f18f6e1102b1878c7d"
+    },
+    {
+      "ruta": "src/components/LectorLibro.jsx",
+      "sha256": "8268b0860cb3573e804a61ecf6e26207b60d84a09768af376339ae0f261f2213"
+    },
+    {
+      "ruta": "src/components/LectorLibroPrivado.jsx",
+      "sha256": "3f28dacaf0f816c14c35a9c1d64c60b37c4599a6db80539a6118f6540a60ce3d"
+    },
+    {
+      "ruta": "src/components/RouteLoadBoundary.jsx",
+      "sha256": "54f3e079a1808d6a4a4348703799f91d311d7517527d02a44aba1177be17487a"
+    },
+    {
+      "ruta": "src/components/activities/ActivityFeedback.jsx",
+      "sha256": "817266bed59428005f802d05d6617efecbf12e337f96dac4df4109a51f9674a0"
+    },
+    {
+      "ruta": "src/components/activities/SeleccionMultiple.jsx",
+      "sha256": "18a35433d783c86cb66629fa917b9f7861ef3d5847756f1f3fbf6e087fafbe8c"
+    },
+    {
+      "ruta": "src/components/activities/TarjetasVolteables.jsx",
+      "sha256": "63194e72564101ede61e20deca4ece2175dacdab8ca9524de97240391444d799"
+    },
+    {
+      "ruta": "src/components/activities/activityStyles.js",
+      "sha256": "8b5b094bfec16987a794a4ff77c1e36c3a4e53a7b12d3e088a6e25b9da607f6f"
+    },
+    {
+      "ruta": "src/hooks/useInactivityTimeout.js",
+      "sha256": "f389a728d71efb87872602488a8bdf0024ff1939590df3dae0ee67ee89c0fea6"
+    },
+    {
+      "ruta": "src/lib/diagnostics.js",
+      "sha256": "1ad8173b6eaf43557c4259a22843d79e4c932681e1f6d03bb4d5d8a37c04a9ee"
+    },
+    {
+      "ruta": "src/lib/inactivityTimer.js",
+      "sha256": "dc2fd42366d2756e12d011a4d244c7e1e1c037722680825f9ab86e541336bbef"
+    },
+    {
+      "ruta": "src/lib/pdfAccess.js",
+      "sha256": "c05e4b69f48b7df23cc1bb30317cfe429d62c502c66e2ab8e4efae3003d0a3ee"
+    },
+    {
+      "ruta": "src/pages/Activar.jsx",
+      "sha256": "88fb60dae3963bfb9ab24d4b5aca1281d30e1944af70cbd9e234151b3563ed8a"
+    },
+    {
+      "ruta": "src/pages/Actividad.jsx",
+      "sha256": "58d9c1b07b6ad8e45dcfa131faabef333cfbb25871dac6ae3da023d6a46d4786"
+    },
+    {
+      "ruta": "src/pages/ClaseDetalle.jsx",
+      "sha256": "81925475e79f1633c3a0a2bd730c852a6a5e9ccbe31d8a6195959c6ebd2c4471"
+    },
+    {
+      "ruta": "src/pages/DocenteRespuestaEstudiante.jsx",
+      "sha256": "80143ffcb62ab652e93e40076f4bdf9384d78a7c0c62d265d1fa4f5c75b1bb14"
+    },
+    {
+      "ruta": "src/pages/Inicio.jsx",
+      "sha256": "3864a41fb5a96196037a5602d493c821a7088209415f06b357d49a3bee464b78"
+    },
+    {
+      "ruta": "src/pages/Libro.jsx",
+      "sha256": "a59a2651fe40f604a080f9f3744c7530378a26e67177643e1940741ed6568330"
+    },
+    {
+      "ruta": "src/pages/NuevaClase.jsx",
+      "sha256": "3699f058a9f2b10344056d368bb820c44a1361aa7402956484fd4f802ce189d7"
+    },
+    {
+      "ruta": "src/pages/PanelDocente.jsx",
+      "sha256": "275b71484dd125fecd67814420ddc4da8813f057e2e1a66aeab24c0752cc8d3e"
+    },
+    {
+      "ruta": "src/pages/Unidad.jsx",
+      "sha256": "82a5fe844b027754c9520abc8a4b9492466cad2cffc7b13375290b40331a4ec8"
+    },
+    {
+      "ruta": "src/pages/UnirseClase.jsx",
+      "sha256": "be1cc0634e69078e042358a1f96bdc4ae5d2d998fed6f2bfccd54abc5c35ac16"
+    },
+    {
+      "ruta": "src/services/clases.service.js",
+      "sha256": "8f4d3328f443905428bd20cf76818a745b8a88e0b8a0ce496d8afe1d65c6f396"
+    },
+    {
+      "ruta": "src/services/libros.service.js",
+      "sha256": "3a3665c514665053e4213588e51ab5af95f3d71b71c7cf2a24b6eaf752b1bf10"
+    },
+    {
+      "ruta": "src/services/progreso.service.js",
+      "sha256": "ac934c1740c4c85f327bb2457507469a3f09b8cd8bd03e65adc9b40d97636ed1"
+    },
+    {
+      "ruta": "src/services/tokens.service.js",
+      "sha256": "4c9c38631b372b8cb98ffaff026f9b00dbe9256500319014bfbd876b6b6f1a46"
+    }
+  ],
+  "excluido": [
+    "Credenciales y resultados de pruebas",
+    "Configuraciones Vite/harness de prueba",
+    "Datos y cambios SQL/Edge",
+    "Cambios ajenos del árbol principal"
+  ],
+  "verificacion": "REVISION_PAQUETE_FASE6.md"
+}

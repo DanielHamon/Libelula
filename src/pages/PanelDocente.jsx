@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -41,7 +42,7 @@ export default function PanelDocente() {
     try {
       const data = await getClasesDocente(userId)
       setClases(data)
-    } catch (err) { console.error(err) }
+    } catch (err) { registrarError("PanelDocente", err) }
     finally { setCargando(false) }
   }
 
@@ -53,7 +54,7 @@ export default function PanelDocente() {
       setClases(prev => prev.filter(c => c.id !== confirmEliminar.id))
       setConfirmEliminar(null)
     } catch (err) {
-      console.error('eliminarClase:', err)
+      registrarError("eliminarClase:", err)
     } finally {
       setEliminando(false)
     }

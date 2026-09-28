@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -204,7 +205,7 @@ export default function ClaseDetalle() {
       })
 
       setEstudiantes(estudiantesData)
-    } catch (err) { console.error(err) }
+    } catch (err) { registrarError("ClaseDetalle", err) }
     finally { setCargando(false) }
   }
 
@@ -218,7 +219,7 @@ export default function ClaseDetalle() {
       if (error) throw error
       setAgregarLibroOpen(false)
       await cargarDatos()
-    } catch (err) { console.error(err) }
+    } catch (err) { registrarError("ClaseDetalle", err) }
   }
 
   function abrirEdicion() {
@@ -252,7 +253,7 @@ export default function ClaseDetalle() {
       setEditarOpen(false)
       await cargarDatos()
     } catch (error) {
-      console.error('guardarEdicion:', error)
+      registrarError("guardarEdicion:", error)
       setErrorEdicion('No se pudieron guardar los cambios.')
     } finally {
       setGuardandoEdicion(false)
@@ -267,7 +268,7 @@ export default function ClaseDetalle() {
       setEstudiantes(prev => prev.filter(e => e.uid !== estudianteAEliminar.uid))
       setEstudianteAEliminar(null)
     } catch (err) {
-      console.error(err)
+      registrarError("ClaseDetalle", err)
     } finally {
       setEliminandoEstudiante(false)
     }

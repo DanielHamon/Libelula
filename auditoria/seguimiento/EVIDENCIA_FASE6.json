@@ -1,0 +1,574 @@
+{
+  "fecha": "2026-09-28",
+  "estado": "Candidato selectivo verificado localmente; Range tardío pasa; pendiente publicación autorizada",
+  "produccion_modificada": false,
+  "archivos_bloque": [
+    "src/App.jsx",
+    "src/components/RouteLoadBoundary.jsx"
+  ],
+  "sha256": {
+    "src/App.jsx": "0f4cc546329dfb208900bd81996fc9c6151f1ec6122dea4404609ebf5d02678f",
+    "src/components/RouteLoadBoundary.jsx": "54f3e079a1808d6a4a4348703799f91d311d7517527d02a44aba1177be17487a"
+  },
+  "build": {
+    "antes_kb": 1385.07,
+    "despues_principal_kb": 447.37,
+    "login_observado_bytes": 454614,
+    "warning_js_500kb": false,
+    "entorno": "Árbol local con cambios previos; dependencias compartidas existentes; Vite 8.1.5"
+  },
+  "eslint_selectivo": "Pasa",
+  "navegador": {
+    "login": true,
+    "redireccion_sin_sesion_admin_libro": true,
+    "error_descarga": true,
+    "recarga_recupera_login": true,
+    "sesiones_autenticadas": false,
+    "produccion": false
+  },
+  "pendientes": [
+    "Autorizar publicación selectiva del candidato revisado",
+    "Integrar/publicar y verificar despliegue antes de cerrar fase 6"
+  ],
+  "pausa_usuario": {
+    "fecha": "2026-09-26",
+    "solicitud": "guarda memoria para continuar despues; ya guardaste memoria?",
+    "implementacion": "Detenida hasta nueva indicación",
+    "limpieza_storage": "Ruta restaurada/verificada; PDF y bucket retirados; cuatro true en limpieza-storage.json",
+    "limpieza_sql": "Retirada del índice aud008_local_storage_current y política authenticated_read_libros_authorized NO confirmada; llamada interrumpida",
+    "bases_locales": "Fase3 posiblemente activa; parada NO confirmada; conservar volúmenes",
+    "navegador_servidores": "Harness preparado; Vite 5180 y navegador no iniciados en este bloque",
+    "siguiente_paso": "Verificar estado y completar limpieza acotada; después retomar verificación real AUD-008, contratos AUD-010, renders AUD-012 y revisión/build AUD-014"
+  },
+  "aud011": {
+    "fecha": "2026-09-24",
+    "estado": "Implementado y verificado con reloj controlado y dobles de Auth/React; falta navegador autenticado y publicación",
+    "archivos": [
+      "src/hooks/useInactivityTimeout.js",
+      "src/lib/inactivityTimer.js",
+      "auditoria/pruebas/scripts/25_inactividad_fase6.test.mjs",
+      "auditoria/pruebas/scripts/26_hook_inactividad_fase6.test.mjs"
+    ],
+    "sha256": {
+      "src/hooks/useInactivityTimeout.js": "f389a728d71efb87872602488a8bdf0024ff1939590df3dae0ee67ee89c0fea6",
+      "src/lib/inactivityTimer.js": "dc2fd42366d2756e12d011a4d244c7e1e1c037722680825f9ab86e541336bbef",
+      "auditoria/pruebas/scripts/25_inactividad_fase6.test.mjs": "a90795e987c61a6ba77c7b5b9d670abf509d89105ae6ac662f247a9b342c691f",
+      "auditoria/pruebas/scripts/26_hook_inactividad_fase6.test.mjs": "526c91ab4b9a4b9c2b89d7e3619565811d3010eb21aedfef07a0818fbedad9e5"
+    },
+    "inactividad_minutos": 30,
+    "aviso_minutos_antes": 5,
+    "sincronizacion_segundos": 15,
+    "pruebas_reloj": {
+      "pasan": 13,
+      "log": "auditoria/pruebas/resultados/fase6/aud011/reloj.log"
+    },
+    "pruebas_hook_con_dobles": {
+      "pasan": 5,
+      "log": "auditoria/pruebas/resultados/fase6/aud011/hook.log"
+    },
+    "medicion_simulada": {
+      "eventos_mousemove": 6000,
+      "duracion_segundos": 60,
+      "escrituras_incluida_inicial": 5,
+      "programaciones": 5,
+      "temporizadores_simultaneos": 1,
+      "notificaciones_estado": 1
+    },
+    "eslint_selectivo": "Pasa",
+    "build": "Pasa; principal 448.17 kB; sin advertencia JS >500 kB",
+    "limites": [
+      "Sin navegador autenticado ni Auth real en este bloque",
+      "Sin medición de CPU o dispositivos reales",
+      "Sin storage disponible solo funciona coordinación local",
+      "Cierre abrupto puede perder hasta 15 segundos de actividad aún no publicada",
+      "Métricas del árbol local con cambios anteriores; no candidato selectivo"
+    ],
+    "produccion_modificada": false
+  },
+  "aud007": {
+    "fecha": "2026-09-24",
+    "decision": "Diferir índices nuevos: no hay beneficio material acreditado con la carga actual",
+    "informe": "auditoria/seguimiento/AUD007_INDICES_MEDIDOS.md",
+    "series": 18,
+    "planes": 126,
+    "repeticiones_utiles_por_serie": 6,
+    "indices_produccion_sin_cambios": 58,
+    "fk_revisadas": 21,
+    "produccion": "Solo consulta de metadatos/estadísticas; sin DDL ni datos de usuarios",
+    "respuestas_bytes_tabla_produccion": 32768,
+    "resumen": {
+      "resumen": [
+        {
+          "escenario": "fixtures_1500",
+          "caso": "panel_docente",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 4.775,
+          "filas": [
+            500
+          ],
+          "bloques_mediana": 402.0,
+          "indices": [
+            "clase_libros_pkey",
+            "profiles_pkey",
+            "respuestas_usuario_id_actividad_id_key"
+          ]
+        },
+        {
+          "escenario": "fixtures_1500",
+          "caso": "fk_actividad",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 0.1195,
+          "filas": [
+            25
+          ],
+          "bloques_mediana": 41.0,
+          "indices": []
+        },
+        {
+          "escenario": "fixtures_1500",
+          "caso": "fk_unidad",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 0.146,
+          "filas": [
+            750
+          ],
+          "bloques_mediana": 41.0,
+          "indices": []
+        },
+        {
+          "escenario": "fixtures_1500",
+          "caso": "fk_libro",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 0.187,
+          "filas": [
+            1500
+          ],
+          "bloques_mediana": 41.0,
+          "indices": []
+        },
+        {
+          "escenario": "fixtures_1500",
+          "caso": "panel_docente",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 4.586,
+          "filas": [
+            500
+          ],
+          "bloques_mediana": 381.0,
+          "indices": [
+            "aud007_respuestas_actividad_unidad_idx",
+            "clase_libros_pkey",
+            "profiles_pkey"
+          ]
+        },
+        {
+          "escenario": "fixtures_1500",
+          "caso": "fk_actividad",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 0.0205,
+          "filas": [
+            25
+          ],
+          "bloques_mediana": 27.0,
+          "indices": [
+            "aud007_respuestas_actividad_unidad_idx"
+          ]
+        },
+        {
+          "escenario": "fixtures_1500",
+          "caso": "fk_unidad",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 0.145,
+          "filas": [
+            750
+          ],
+          "bloques_mediana": 41.0,
+          "indices": []
+        },
+        {
+          "escenario": "fixtures_1500",
+          "caso": "fk_libro",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 0.21300000000000002,
+          "filas": [
+            1500
+          ],
+          "bloques_mediana": 41.0,
+          "indices": []
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_actividad",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 11.5835,
+          "filas": [
+            25
+          ],
+          "bloques_mediana": 2587.0,
+          "indices": []
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_unidad",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 12.468,
+          "filas": [
+            150
+          ],
+          "bloques_mediana": 2587.0,
+          "indices": []
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_libro",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 13.214500000000001,
+          "filas": [
+            1500
+          ],
+          "bloques_mediana": 2587.0,
+          "indices": []
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_actividad_unidad",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 12.737,
+          "filas": [
+            25
+          ],
+          "bloques_mediana": 2587.0,
+          "indices": []
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_actividad",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 0.02,
+          "filas": [
+            25
+          ],
+          "bloques_mediana": 27.0,
+          "indices": [
+            "sinteticas_actividad_unidad_idx"
+          ]
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_unidad_libro",
+          "etapa": "antes",
+          "repeticiones": 6,
+          "mediana_ms": 12.7535,
+          "filas": [
+            150
+          ],
+          "bloques_mediana": 2587.0,
+          "indices": []
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_unidad",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 0.0695,
+          "filas": [
+            150
+          ],
+          "bloques_mediana": 152.0,
+          "indices": [
+            "sinteticas_unidad_libro_idx"
+          ]
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_libro",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 4.322,
+          "filas": [
+            1500
+          ],
+          "bloques_mediana": 1503.0,
+          "indices": [
+            "sinteticas_libro_idx"
+          ]
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_actividad_unidad",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 0.0165,
+          "filas": [
+            25
+          ],
+          "bloques_mediana": 27.0,
+          "indices": [
+            "sinteticas_actividad_unidad_idx"
+          ]
+        },
+        {
+          "escenario": "sintetico_150000",
+          "caso": "fk_unidad_libro",
+          "etapa": "despues",
+          "repeticiones": 6,
+          "mediana_ms": 0.069,
+          "filas": [
+            150
+          ],
+          "bloques_mediana": 152.0,
+          "indices": [
+            "sinteticas_unidad_libro_idx"
+          ]
+        }
+      ],
+      "restauracion": {
+        "respuestas_preservadas": 1500,
+        "indices_experimentales_restantes": 0
+      },
+      "indices_sinteticos": [
+        {
+          "bytes": 5611520,
+          "indice": "sinteticas_pkey"
+        },
+        {
+          "bytes": 8413184,
+          "indice": "sinteticas_usuario_actividad_key"
+        },
+        {
+          "bytes": 1220608,
+          "indice": "sinteticas_actividad_unidad_idx"
+        },
+        {
+          "bytes": 1040384,
+          "indice": "sinteticas_unidad_libro_idx"
+        },
+        {
+          "bytes": 1114112,
+          "indice": "sinteticas_libro_idx"
+        }
+      ],
+      "indices_fixtures": [
+        {
+          "bytes": 90112,
+          "indice": "respuestas_pkey"
+        },
+        {
+          "bytes": 212992,
+          "indice": "respuestas_usuario_id_actividad_id_key"
+        },
+        {
+          "bytes": 32768,
+          "indice": "aud007_respuestas_actividad_unidad_idx"
+        },
+        {
+          "bytes": 32768,
+          "indice": "aud007_respuestas_unidad_libro_idx"
+        },
+        {
+          "bytes": 32768,
+          "indice": "aud007_respuestas_libro_idx"
+        }
+      ]
+    },
+    "local": {
+      "usuarios": 30,
+      "perfiles": 30,
+      "respuestas": 1500,
+      "fixtures_regenerados": false,
+      "rollback": true,
+      "indices_experimentales_restantes": 0,
+      "parada": {
+        "backup": true,
+        "log": "auditoria/pruebas/resultados/fase6/aud007/parada.log"
+      }
+    },
+    "evidencia": "auditoria/pruebas/resultados/fase6/aud007",
+    "pendiente": "Reevaluar al crecer o ante latencia demostrada; no afirmar corrección desplegada",
+    "sha256": {
+      "auditoria/pruebas/scripts/27_indices_fase6.py": "16f614af508dd1617a918716a465c66f0dadfe98f774d2665a91a1811e67cdc4",
+      "auditoria/pruebas/scripts/28_resumen_indices_fase6.py": "9ef25a7ea54f797d2e0abbf75a3876734ad668ac450f1bde7332398f1856d587",
+      "auditoria/seguimiento/consulta_indices_fase6.sql": "b9d3569b7fb8331f12ffb677dbb51fee73afe0e6b2cc5779e729eb73ffaa5f92"
+    }
+  },
+  "pausas_anteriores": [
+    {
+      "fecha": "2026-09-22",
+      "solicitud": "Guardar memoria tras revisar pendientes de fase 6",
+      "siguiente_paso": "Esperar reanudación; siguiente bloque AUD-011",
+      "navegador": "fase6 cerrado confirmado",
+      "servidores_locales": "5177 y 5178 detenidos",
+      "bases_locales": "No iniciadas en fase 6",
+      "publicacion": "Sin commit, PR ni despliegue",
+      "reanudada": "2026-09-24: usuario pidió continuar fase 6"
+    },
+    {
+      "fecha": "2026-09-24",
+      "solicitud": "bien guarda memoria",
+      "siguiente_paso": "Esperar reanudación; siguiente bloque AUD-008, sin implementación todavía",
+      "bases_locales": "Fase3 detenida con backup:true; fixtures y volúmenes conservados",
+      "navegador_servidores": "No iniciados en bloques AUD-011/AUD-007; cierre anterior documentado",
+      "publicacion": "Sin commit, PR ni despliegue",
+      "accion_usuario_pendiente": false,
+      "preferencia": "Dar paso a paso cuando se requiera intervención del usuario",
+      "reanudada": "2026-09-26: usuario pidió continuar"
+    }
+  ],
+  "aud008": {
+    "fecha": "2026-09-26",
+    "estado": "Local parcial; pendiente Storage/auth real, PDF grande con Range y publicación",
+    "archivos": [
+      "src/services/libros.service.js",
+      "src/pages/Libro.jsx",
+      "src/components/LectorLibro.jsx",
+      "src/components/LectorLibroPrivado.jsx",
+      "src/lib/pdfAccess.js",
+      "auditoria/pruebas/scripts/29_pdf_access_fase6.test.mjs",
+      "auditoria/pruebas/scripts/30_firma_pdf_fase6.test.mjs"
+    ],
+    "sha256": {
+      "src/services/libros.service.js": "03eade6db3af2d7d71e36e104664a22a2b2c0db561a23b87879936bc60f902d6",
+      "src/pages/Libro.jsx": "910fefc8d083f3f1182e7573e48c50c8fbd7aebd8a8e5f37a20c241dd333662d",
+      "src/components/LectorLibro.jsx": "8268b0860cb3573e804a61ecf6e26207b60d84a09768af376339ae0f261f2213",
+      "src/components/LectorLibroPrivado.jsx": "3f28dacaf0f816c14c35a9c1d64c60b37c4599a6db80539a6118f6540a60ce3d",
+      "src/lib/pdfAccess.js": "c05e4b69f48b7df23cc1bb30317cfe429d62c502c66e2ab8e4efae3003d0a3ee",
+      "auditoria/pruebas/scripts/29_pdf_access_fase6.test.mjs": "127729b18c608684775fa0142103c71b10e12250f89ca0161ae5302eeb3132d0",
+      "auditoria/pruebas/scripts/30_firma_pdf_fase6.test.mjs": "6091d6eaba2e7de1f8948e8b2e48a0482edc5bc8692183c7c9364b749eb79c2d"
+    },
+    "ttl_pdf_solicitado_segundos": 300,
+    "ttl_portada_segundos": 3600,
+    "pruebas_controlador": 10,
+    "pruebas_servicio_con_doble": 6,
+    "build": "Pasa",
+    "eslint": {
+      "errores_previos": 5,
+      "advertencias_previas": 2,
+      "diagnosticos_nuevos": 0
+    },
+    "navegador": "PDF ficticio; Supabase simulado; caducidad inyectada por callback con reloj adelantado; conserva páginas 3–4 y recupera tras error",
+    "storage_real": false,
+    "limite_ttl_servidor_acreditado": false,
+    "produccion_modificada": false,
+    "evidencia": "auditoria/pruebas/resultados/fase6/aud008",
+    "navegador_cerrado": true,
+    "servidor": "5179 detenido salida 130",
+    "bases_locales": "No iniciadas"
+  },
+  "trabajo_interrumpido": {
+    "evidencia": "auditoria/pruebas/resultados/fase6/cierre-local",
+    "aud014": "Logger y 44 llamadas en 15 archivos; 3 pruebas pasan; falta revisión global",
+    "aud010": "Dos mecánicas y helpers extraídos; falta validación funcional/build",
+    "aud012": "Sin medir ni modificar",
+    "aud008_real": "Auth local y preparación PDF; sin resultado de Range/expiración real",
+    "produccion_modificada": false
+  },
+  "retoma_27_28": {
+    "aud014": {
+      "llamadas_estaticas": 44,
+      "pruebas": 4
+    },
+    "aud010": {
+      "mecanicas_extraidas": 2,
+      "casos_navegador": 8,
+      "declaraciones_equivalentes_local": 62,
+      "declaraciones_equivalentes_candidato": 60
+    },
+    "aud012": {
+      "componente": "InactivityNotice",
+      "ventana_segundos": 6,
+      "renders_libro_antes": 6,
+      "renders_libro_despues": 0,
+      "contador_continua": true,
+      "limite": "Desarrollo local; no mide CPU ni finalización de actividad"
+    },
+    "aud011_auth_local": {
+      "aviso": true,
+      "extension": true,
+      "expiracion_cierra_auth": true,
+      "limite": "Marcas de actividad adelantadas; multiventana solo con dobles"
+    },
+    "aud008_storage_real": {
+      "ttl_solicitado": 300,
+      "espera_segundos": 305.16,
+      "range_inicial": 206,
+      "caducada": 400,
+      "renovada": 206,
+      "bytes_pdf": 16617748,
+      "pagina_conservada_tras_http_real": true,
+      "permiso_retirado_denegado": true,
+      "reintento_manual_recupera": true,
+      "maximo_ttl_servidor_acreditado": false,
+      "range_tardio_pdfjs": {
+        "espera_real_ms": 327244,
+        "rechazos_http400": 4,
+        "firmas_nuevas": 1,
+        "fragmentos_renovados_206": 37,
+        "paginas_finales": "Páginas 31–32 de 32",
+        "alerta_final": false,
+        "errores_js": 0,
+        "opciones_solo_harness": [
+          "disableAutoFetch:true",
+          "disableStream:true",
+          "proxy local para visibilidad de Accept-Ranges"
+        ],
+        "suspension_sistema_operativo": false
+      }
+    },
+    "candidato": {
+      "base": "623804cfe5def764a883371bfc294ccc295116e1",
+      "worktree": "/tmp/iabooks-fase6-retoma28",
+      "archivos_codigo_pruebas": 34,
+      "build": "Pasa; dependencias compartidas",
+      "principal_kb": 448.8,
+      "libro_kb": 452.1,
+      "eslint_base": [
+        35,
+        24
+      ],
+      "eslint_candidato": [
+        34,
+        23
+      ],
+      "diagnosticos_nuevos": 0,
+      "pruebas": 38,
+      "navegador": "Alumno lector; docente panel/clase/respuestas; ocho casos de actividades; cero errores JS no controlados",
+      "publicado": false,
+      "ajuste_final": "Solo retirada de líneas vacías finales de ActivityCard; AST60 vuelve a pasar;3503 líneas; diff --check pasa"
+    },
+    "evidencia": [
+      "auditoria/pruebas/resultados/fase6/retoma-27",
+      "auditoria/pruebas/resultados/fase6/retoma-28"
+    ],
+    "limpieza_sql": {
+      "usuarios": 30,
+      "perfiles": 30,
+      "respuestas": 1500,
+      "activaciones": 0,
+      "buckets": 0,
+      "objetos": 0,
+      "indice_temporal": false,
+      "politica_temporal": 0
+    },
+    "limpieza_recursos": {
+      "pdf_restaurado": true,
+      "bucket_retirado": true,
+      "activacion_temporal_retirada": true,
+      "token_temporal_retirado": true
+    },
+    "supabase_detenido_backup": true,
+    "servidores_navegadores_cerrados": true
+  }
+}

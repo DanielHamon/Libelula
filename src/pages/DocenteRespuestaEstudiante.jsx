@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -282,7 +283,7 @@ export default function DocenteRespuestaEstudiante() {
           setSearchParams({ libroId: initialLibro }, { replace: true })
         }
       }
-    } catch (e) { console.error(e) }
+    } catch (e) { registrarError("DocenteRespuestaEstudiante", e) }
     finally { setLoading(false) }
   }
 

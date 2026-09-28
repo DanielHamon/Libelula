@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -53,7 +54,7 @@ export default function Unidad() {
       }
       setProgreso(prog)
       setRespuestas(respuestasData)
-    } catch (err) { console.error(err) }
+    } catch (err) { registrarError("Unidad", err) }
     finally { setCargando(false) }
   }
 
@@ -76,7 +77,7 @@ export default function Unidad() {
         }))
       }
     } catch (e) {
-      console.error('guardarProgreso:', e)
+      registrarError("guardarProgreso:", e)
       setErrorProgreso('No pudimos guardar tu progreso. Inténtalo de nuevo.')
     }
   }
