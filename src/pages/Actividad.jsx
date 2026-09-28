@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -102,7 +103,7 @@ export default function Actividad() {
       ])
       if (actData) setActividad(actData)
       setCompletada(completadaResult)
-    } catch (err) { console.error(err) }
+    } catch (err) { registrarError("Actividad", err) }
     finally { setCargando(false) }
   }
 
@@ -114,7 +115,7 @@ export default function Actividad() {
       await marcarCompleta(user.id, libroId, actividadId)
       setCompletada(true)
     } catch (error) {
-      console.error('guardarProgreso:', error)
+      registrarError("guardarProgreso:", error)
       setErrorProgreso('No pudimos guardar tu progreso. Inténtalo de nuevo.')
     }
   }

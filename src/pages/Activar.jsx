@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -281,7 +282,7 @@ export default function Activar() {
       }
       setFase('exito')
     } catch (err) {
-      console.error('[Activar]', err)
+      registrarError("[Activar]", err)
       setError('Ocurrió un error. Intenta de nuevo.')
     } finally { setCargando(false) }
   }

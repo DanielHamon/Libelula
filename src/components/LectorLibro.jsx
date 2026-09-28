@@ -58,7 +58,7 @@ async function extractPageText(pdfDoc, pageNum) {
   }
 }
 
-export default function LectorLibro({ pdfUrl, libroId, hotspots = [] }) {
+export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevision = 0, onPdfError }) {
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 768
   const doublePage = windowWidth > 860
@@ -253,7 +253,10 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [] }) {
             )}
 
             <Document
+              key={`${pdfUrl}:${pdfRevision}`}
               file={pdfUrl}
+              onSourceError={onPdfError}
+              onLoadError={onPdfError}
               onLoadSuccess={pdf => { setNumPages(pdf.numPages); setPdfDoc(pdf) }}
               loading={
                 <div style={{ display: 'flex' }}>
@@ -274,6 +277,8 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [] }) {
                 }}>
                   {leftPageNum <= (numPages || 0) && (
                     <Page
+                      onLoadError={onPdfError}
+                      onRenderError={onPdfError}
                       pageNumber={leftPageNum}
                       width={pageWidth}
                       renderAnnotationLayer={false}
@@ -294,6 +299,8 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [] }) {
                     boxShadow: 'inset 6px 0 10px rgba(0,0,0,0.04)',
                   }}>
                     <Page
+                      onLoadError={onPdfError}
+                      onRenderError={onPdfError}
                       pageNumber={rightPageNum}
                       width={pageWidth}
                       renderAnnotationLayer={false}

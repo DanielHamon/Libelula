@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { supabase } from '../lib/supabase'
 
 export async function getProgreso(usuarioId) {
@@ -19,7 +20,7 @@ export async function getRespuestas(usuarioId, libroId) {
 
   const { data, error } = await query
   if (error) {
-    console.warn('[Libelula] No se pudieron cargar las respuestas:', error.message)
+    registrarError("No se pudieron cargar las respuestas:", error, 'warn')
     return {}
   }
 

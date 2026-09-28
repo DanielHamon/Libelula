@@ -1,10 +1,11 @@
+import { registrarError } from '../lib/diagnostics'
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getLibroConUnidades } from '../services/libros.service'
 import { evaluarIntento, getProgreso, getRespuestas, registrarProgreso } from '../services/progreso.service'
 import Sidebar from '../components/Sidebar'
-import LectorLibro from '../components/LectorLibro'
+import LectorLibroPrivado from '../components/LectorLibroPrivado'
 import { ActivityCard } from '../components/ActivityCard'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import { rememberRecentBook } from '../lib/recentBooks'
@@ -102,7 +103,7 @@ export default function Libro() {
       setUnidades(unidadesData)
       setProgreso(prog)
       setRespuestas(respuestasData)
-    } catch (err) { console.error(err) }
+    } catch (err) { registrarError("Libro", err) }
     finally { setCargando(false) }
   }
 
@@ -125,7 +126,7 @@ export default function Libro() {
         }))
       }
     } catch (e) {
-      console.error('guardarProgreso:', e)
+      registrarError("guardarProgreso:", e)
       setErrorProgreso('No pudimos guardar tu progreso. Inténtalo de nuevo.')
     }
   }
@@ -293,8 +294,8 @@ export default function Libro() {
         {/* ── Leer ── */}
         {tab === 'leer' && (
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto' }}>
-            {pdfUrl
-              ? <LectorLibro pdfUrl={pdfUrl} libroId={libroId} hotspots={hotspots} scrollContainerRef={scrollRef} />
+            {libro?.pdf_disponible
+              ? <LectorLibroPrivado key={libroId} pdfUrl={pdfUrl} expiresAt={libro.pdf_expires_at} libroId={libroId} hotspots={hotspots} />
               : <TabEmpty icon="📚" msg="El PDF de este libro aún no está disponible." accent={accent} accentBg={accentBg} />
             }
           </div>

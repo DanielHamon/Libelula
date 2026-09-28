@@ -1,3 +1,4 @@
+import { registrarError } from '../lib/diagnostics'
 import { supabase } from '../lib/supabase'
 
 function storageFallbackUrl(path) {
@@ -9,12 +10,30 @@ function storageFallbackUrl(path) {
   return null
 }
 
+const PDF_URL_TTL_SECONDS = 300
+
+async function firmarPdf(path) {
+  if (!path || path.startsWith('/') || /^https?:/i.test(path)) throw new Error('PDF no disponible')
+  const issuedAt = Date.now()
+  const { data, error } = await supabase.storage.from('libros').createSignedUrl(path, PDF_URL_TTL_SECONDS)
+  if (error || !data?.signedUrl) throw new Error('No se pudo preparar el PDF')
+  return { url: data.signedUrl, expiresAt: issuedAt + PDF_URL_TTL_SECONDS * 1000 }
+}
+
+export async function renovarPdfLibro(libroId) {
+  // Revalidar acceso y ruta actuales antes de cada firma; no reutilizar la ruta
+  // de una licencia retirada ni registrar la URL firmada en consola/storage.
+  const { data, error } = await supabase.rpc('get_libro_completo', { p_libro_id: libroId })
+  if (error || !data?.libro) throw new Error('Libro no disponible')
+  return firmarPdf(data.libro.pdf_url)
+}
+
 export async function getLibroConUnidades(libroId) {
   const { data, error } = await supabase.rpc('get_libro_completo', { p_libro_id: libroId })
   if (error) {
     const accesoDenegado = error.code === '42501' || error.status === 403
     if (!accesoDenegado) {
-      console.warn('[Libelula] No se pudo cargar el libro:', error.code, error.message)
+      registrarError("No se pudo cargar el libro:", error, 'warn')
     }
     return {
       libro: null,
@@ -25,15 +44,20 @@ export async function getLibroConUnidades(libroId) {
   if (!data) return { libro: null, unidades: [], error: 'no_encontrado' }
 
   const { libro, unidades } = data
+  if (!libro) return { libro: null, unidades: [], error: 'no_encontrado' }
 
-  if (libro?.pdf_url && !libro.pdf_url.startsWith('/')) {
-    const originalPath = libro.pdf_url
-    const { data: signed, error: storageError } = await supabase.storage
-      .from('libros').createSignedUrl(libro.pdf_url, 3600)
-    if (storageError) {
-      console.warn('[Libelula] No se pudo firmar PDF desde Storage:', originalPath, storageError.message)
+  const pdfPath = libro?.pdf_url
+  libro.pdf_disponible = Boolean(pdfPath && !pdfPath.startsWith('/') && !/^https?:/i.test(pdfPath))
+  libro.pdf_url = null
+  libro.pdf_expires_at = null
+  if (libro.pdf_disponible) {
+    try {
+      const signed = await firmarPdf(pdfPath)
+      libro.pdf_url = signed.url
+      libro.pdf_expires_at = signed.expiresAt
+    } catch {
+      // El lector permite reintentar sin volver a cargar actividades/progreso.
     }
-    libro.pdf_url = signed?.signedUrl ?? storageFallbackUrl(originalPath)
   }
 
   for (const u of unidades) {
@@ -71,7 +95,7 @@ export async function getPortadaUrl(portadaPath) {
   const { data, error } = await supabase.storage
     .from('libros').createSignedUrl(portadaPath, 3600)
   if (error) {
-    console.warn('[Libelula] No se pudo firmar portada desde Storage:', portadaPath, error.message)
+    registrarError("No se pudo firmar portada desde Storage:", error, 'warn')
   }
   return data?.signedUrl ?? storageFallbackUrl(portadaPath)
 }
