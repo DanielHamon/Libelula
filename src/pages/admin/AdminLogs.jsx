@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import AdminLayout from '../../components/AdminLayout'
 import { getLogs } from '../../services/admin.service'
@@ -73,7 +73,7 @@ export default function AdminLogs() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr>
-                {['Fecha', 'Acción', 'Entidad', 'ID entidad', 'Payload'].map(h => (
+                {['Fecha', 'Acción', 'Entidad', 'Usuario', 'Payload'].map(h => (
                   <th key={h} style={S.th}>{h}</th>
                 ))}
               </tr>
@@ -84,15 +84,18 @@ export default function AdminLogs() {
               ) : items.length === 0 ? (
                 <tr><td colSpan={5} style={{ ...S.td, textAlign: 'center', color: C.textLight, padding: 32 }}>Sin registros aún.</td></tr>
               ) : items.map(item => (
-                <>
-                  <tr key={item.id} style={{ cursor: item.payload ? 'pointer' : 'default' }} onClick={() => item.payload && setExpandedId(expandedId === item.id ? null : item.id)}>
+                <Fragment key={item.id}>
+                  <tr style={{ cursor: item.payload ? 'pointer' : 'default' }} onClick={() => item.payload && setExpandedId(expandedId === item.id ? null : item.id)}>
                     <td style={{ ...S.td, color: C.textLight, whiteSpace: 'nowrap' }}>{formatFecha(item.created_at)}</td>
                     <td style={{ ...S.td, fontWeight: 600 }}>{ACCION_LABEL[item.accion] || item.accion}</td>
                     <td style={S.td}>
                       <span>{ENTIDAD_ICON[item.entidad] || '•'} <span style={{ textTransform: 'capitalize' }}>{item.entidad}</span></span>
                     </td>
-                    <td style={{ ...S.td, fontFamily: 'monospace', fontSize: 12, color: C.textLight, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.entidad_id}
+                    <td style={{ ...S.td, fontSize: 13 }}>
+                      <div style={{ fontWeight: 600 }}>{item.usuario?.nombre || item.usuario?.email || 'Usuario no disponible'}</div>
+                      {item.usuario?.nombre && item.usuario?.email && (
+                        <div style={{ color: C.textLight, fontSize: 12 }}>{item.usuario.email}</div>
+                      )}
                     </td>
                     <td style={{ ...S.td, color: item.payload ? C.primary : C.textLight, fontSize: 13 }}>
                       {item.payload ? (expandedId === item.id ? '▲ Ocultar' : '▼ Ver') : '—'}
@@ -107,7 +110,7 @@ export default function AdminLogs() {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
