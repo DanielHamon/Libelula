@@ -11,6 +11,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 
 const C = { primary: '#2563EB', primaryLight: '#DBEAFE' }
 const ANIM_MS = 1100
+const SHOW_VOICE_READER = false
 
 function getSavedSpread(libroId) {
   try { return parseInt(localStorage.getItem(`iabooks_spread_${libroId}`), 10) || 0 }
@@ -342,7 +343,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
       </div>
 
       {/* TTS Reader */}
-      {pdfDoc && (
+      {SHOW_VOICE_READER && pdfDoc && (
         <LectorVoz
           pdfDoc={pdfDoc}
           leftPageNum={leftPageNum}
