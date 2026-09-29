@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useWindowWidth } from '../hooks/useWindowWidth'
@@ -9,22 +9,40 @@ const C = {
 }
 
 function InputField({ label, type = 'text', placeholder, value, onChange, icon }) {
+  const inputId = useId()
   const [focused, setFocused] = useState(false)
+  const [passwordVisible, setPasswordVisible] = useState(false)
+  const isPassword = type === 'password'
   return (
     <div style={{ marginBottom: 16 }}>
-      {label && <label style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 6, display: 'block' }}>{label}</label>}
+      {label && <label htmlFor={inputId} style={{ fontSize: 14, fontWeight: 600, color: C.text, marginBottom: 6, display: 'block' }}>{label}</label>}
       <div style={{ position: 'relative' }}>
         <input
-          type={type} placeholder={placeholder} value={value} onChange={onChange}
+          id={inputId} type={isPassword && passwordVisible ? 'text' : type} placeholder={placeholder} value={value} onChange={onChange}
           onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           style={{
-            width: '100%', padding: '14px 16px', paddingLeft: icon ? 44 : 16,
+            width: '100%', padding: '14px 16px', paddingLeft: icon ? 44 : 16, paddingRight: isPassword ? 88 : 16,
             borderRadius: 12, border: `1.5px solid ${focused ? C.primary : C.border}`,
             fontSize: 16, fontFamily: 'Nunito', outline: 'none', boxSizing: 'border-box',
             background: '#fff', transition: 'border-color 0.2s', color: C.text,
           }}
         />
         {icon && <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 18, opacity: 0.45 }}>{icon}</span>}
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setPasswordVisible(visible => !visible)}
+            aria-label={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+            aria-pressed={passwordVisible}
+            style={{
+              position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+              padding: '8px 4px', border: 'none', background: 'transparent',
+              color: C.primary, fontSize: 13, fontWeight: 700, fontFamily: 'Nunito', cursor: 'pointer',
+            }}
+          >
+            {passwordVisible ? 'Ocultar' : 'Mostrar'}
+          </button>
+        )}
       </div>
     </div>
   )
