@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import AdminLayout from '../../components/AdminLayout'
 import { getLogs } from '../../services/admin.service'
 import { C, S, btnOutline } from '../../lib/adminStyles'
@@ -45,6 +46,7 @@ export default function AdminLogs() {
   const [expandedId, setExpandedId] = useState(null)
 
   useEffect(() => { load() }, [page])
+  useAdminSectionRefresh('logs', load)
 
   async function load() {
     setLoading(true); setError('')

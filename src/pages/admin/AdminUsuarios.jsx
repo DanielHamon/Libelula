@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import AdminLayout from '../../components/AdminLayout'
 import { supabase } from '../../lib/supabase'
 import { cambiarRolUsuario, getUsuarios, getEscuelasTodas } from '../../services/admin.service'
@@ -39,6 +40,7 @@ export default function AdminUsuarios() {
   }, [q])
 
   useEffect(() => { load() }, [page, debouncedQ, filtroRol, filtroEscuela])
+  useAdminSectionRefresh('usuarios', load)
 
   async function load() {
     setLoading(true); setError('')

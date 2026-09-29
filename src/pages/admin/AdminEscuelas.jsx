@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
 import { getEscuelas, createEscuela, toggleEscuelaActiva } from '../../services/admin.service'
@@ -76,6 +77,7 @@ export default function AdminEscuelas() {
   }, [q])
 
   useEffect(() => { load() }, [page, debouncedQ])
+  useAdminSectionRefresh('escuelas', load)
 
   async function load() {
     setLoading(true); setError('')

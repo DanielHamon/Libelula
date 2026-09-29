@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { useSearchParams } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
 import {
@@ -290,6 +291,7 @@ export default function AdminTokens() {
   }, [q])
 
   useEffect(() => { load() }, [tab, page, debouncedQ, filtroEstado, filtroEscuela, filtroLibro])
+  useAdminSectionRefresh('tokens', load)
 
   async function load() {
     setLoading(true); setError('')

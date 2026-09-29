@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { useParams, Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
 import {
@@ -2435,6 +2436,17 @@ export default function AdminLibroDetalle() {
   const [activitiesVersion, setActivitiesVersion] = useState(0)
 
   useEffect(() => { load() }, [id])
+  useAdminSectionRefresh('libros', refreshContent)
+
+  async function refreshContent() {
+    setError('')
+    try {
+      setUnidades(await getUnidades(id))
+      setActivitiesVersion(version => version + 1)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
 
   async function load() {
     setLoading(true); setError('')

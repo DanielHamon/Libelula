@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import AdminLayout from '../../components/AdminLayout'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { getAdminStats } from '../../services/admin.service'
 import { C, S } from '../../lib/adminStyles'
 
@@ -36,11 +37,21 @@ export default function PanelAdmin() {
   const [stats, setStats] = useState(null)
   const [error, setError] = useState('')
 
+  async function load() {
+    setError('')
+    try {
+      setStats(await getAdminStats())
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
   useEffect(() => {
     getAdminStats()
       .then(setStats)
       .catch(e => setError(e.message))
   }, [])
+  useAdminSectionRefresh('dashboard', load)
 
   return (
     <AdminLayout>
