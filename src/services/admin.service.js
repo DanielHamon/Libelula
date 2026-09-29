@@ -535,11 +535,25 @@ export async function cambiarRolUsuario(id, nuevoRol) {
 export async function getLogs({ offset = 0, limit = 50 } = {}) {
   const { data, count, error } = await supabase
     .from('admin_logs')
-    .select('*', { count: 'exact' })
+    .select('id, admin_id, accion, entidad, payload, created_at', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
   if (error) throw error
-  return { data, count }
+
+  const adminIds = [...new Set((data || []).map(log => log.admin_id).filter(Boolean))]
+  if (adminIds.length === 0) return { data: data || [], count }
+
+  const { data: profiles, error: profilesError } = await supabase
+    .from('profiles')
+    .select('id, nombre, email')
+    .in('id', adminIds)
+  if (profilesError) throw profilesError
+
+  const profilesById = new Map((profiles || []).map(profile => [profile.id, profile]))
+  return {
+    data: data.map(log => ({ ...log, usuario: profilesById.get(log.admin_id) || null })),
+    count,
+  }
 }
 
 // ─── Stats para dashboard ────────────────────────────────────────────────────
