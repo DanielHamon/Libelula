@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { useParams, Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
 import {
@@ -19,6 +20,7 @@ export default function AdminEscuelaDetalle() {
   const [copiado, setCopiado] = useState(false)
 
   useEffect(() => { load() }, [id])
+  useAdminSectionRefresh('escuelas', load)
 
   async function load() {
     setLoading(true); setError('')

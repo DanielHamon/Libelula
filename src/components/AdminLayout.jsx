@@ -4,6 +4,7 @@ import { cerrarSesion } from '../lib/session'
 import { C } from '../lib/adminStyles'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import { getEstadoSuperadministrador } from '../services/admin.service'
+import { getRememberedAdminPath } from '../lib/adminNavigationMemory'
 
 const NAV = [
   { path: '/admin', label: 'Dashboard', icon: '📊', exact: true },
@@ -146,7 +147,7 @@ export default function AdminLayout({ children }) {
             return (
               <Link
                 key={item.path}
-                to={item.path}
+                to={item.path.startsWith('/admin') ? getRememberedAdminPath(item.path) : item.path}
                 title={collapsed && !isMobile ? item.label : undefined}
                 aria-label={collapsed && !isMobile ? item.label : undefined}
                 onClick={closeDrawer}

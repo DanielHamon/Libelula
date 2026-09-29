@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { resetAdminNavigationMemory } from './adminNavigationMemory'
 
 const STORAGE_PREFIXES = ['colorear_', 'carta_', 'mapa_', 'iabooks_spread_']
 const STORAGE_EXACT    = ['iabooks_last_activity']
@@ -11,6 +12,7 @@ function limpiarStorage() {
 }
 
 export async function cerrarSesion({ hard = false } = {}) {
+  resetAdminNavigationMemory()
   limpiarStorage()
   await supabase.auth.signOut()
   if (hard) window.location.replace('/login')

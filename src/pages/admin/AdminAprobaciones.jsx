@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
 import {
@@ -38,6 +39,7 @@ export default function AdminAprobaciones() {
   const [error, setError] = useState('')
 
   useEffect(() => { cargar() }, [estado])
+  useAdminSectionRefresh('aprobaciones', cargar)
 
   async function cargar() {
     setLoading(true)

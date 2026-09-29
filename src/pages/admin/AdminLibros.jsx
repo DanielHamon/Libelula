@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
 import { getLibros, createLibro, toggleLibroActivo, getGrados } from '../../services/admin.service'
@@ -145,6 +146,7 @@ export default function AdminLibros() {
   }, [q])
 
   useEffect(() => { load() }, [page, debouncedQ, filtroGrado, soloActivos])
+  useAdminSectionRefresh('libros', load)
 
   async function load() {
     setLoading(true); setError('')
