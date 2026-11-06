@@ -1,5 +1,5 @@
 import { registrarError } from '../lib/diagnostics'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getClaseDetalle, eliminarEstudianteDeClase, getLibrosDisponiblesParaClase, actualizarClase } from '../services/clases.service'
@@ -111,15 +111,8 @@ export default function ClaseDetalle() {
   const [eliminandoEstudiante, setEliminandoEstudiante] = useState(false)
   const [menuEstudianteId, setMenuEstudianteId] = useState(null)
 
-  useEffect(() => { cargarDatos() }, [claseId])
 
-  useEffect(() => {
-    if (!clase || searchParams.get('editar') !== '1') return
-    abrirEdicion()
-    setSearchParams({}, { replace: true })
-  }, [clase, searchParams, setSearchParams])
-
-  async function cargarDatos() {
+  const cargarDatos = useCallback(async () => {
     try {
       const [claseData, todosLosLibros] = await Promise.all([
         getClaseDetalle(claseId),
@@ -207,7 +200,9 @@ export default function ClaseDetalle() {
       setEstudiantes(estudiantesData)
     } catch (err) { registrarError("ClaseDetalle", err) }
     finally { setCargando(false) }
-  }
+  }, [claseId, navigate])
+
+  useEffect(() => { cargarDatos() }, [cargarDatos])
 
   async function handleAgregarLibro(libro) {
     try {
@@ -222,13 +217,19 @@ export default function ClaseDetalle() {
     } catch (err) { registrarError("ClaseDetalle", err) }
   }
 
-  function abrirEdicion() {
+  const abrirEdicion = useCallback(() => {
     setEditNombre(clase?.nombre || '')
     setEditEmoji(clase?.emoji || '🏫')
     setEditLibros(clase?.libros || [])
     setErrorEdicion('')
     setEditarOpen(true)
-  }
+  }, [clase])
+
+  useEffect(() => {
+    if (!clase || searchParams.get('editar') !== '1') return
+    abrirEdicion()
+    setSearchParams({}, { replace: true })
+  }, [abrirEdicion, clase, searchParams, setSearchParams])
 
   function toggleEditLibro(libro) {
     setEditLibros(current => current.some(item => item.libroId === libro.libroId)

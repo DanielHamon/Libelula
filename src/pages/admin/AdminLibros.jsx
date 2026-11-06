@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
@@ -145,10 +145,8 @@ export default function AdminLibros() {
     return () => clearTimeout(t)
   }, [q])
 
-  useEffect(() => { load() }, [page, debouncedQ, filtroGrado, soloActivos])
-  useAdminSectionRefresh('libros', load)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
       const { data, count } = await getLibros({
@@ -161,7 +159,10 @@ export default function AdminLibros() {
       setItems(data); setTotal(count)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }
+  }, [debouncedQ, filtroGrado, soloActivos, page])
+
+  useEffect(() => { load() }, [load])
+  useAdminSectionRefresh('libros', load)
 
   const [confirmToggle, setConfirmToggle] = useState(null) // { id, titulo }
 

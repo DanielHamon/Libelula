@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import AdminLayout from '../../components/AdminLayout'
 import { supabase } from '../../lib/supabase'
@@ -39,10 +39,8 @@ export default function AdminUsuarios() {
     return () => clearTimeout(t)
   }, [q])
 
-  useEffect(() => { load() }, [page, debouncedQ, filtroRol, filtroEscuela])
-  useAdminSectionRefresh('usuarios', load)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
       const { data, count } = await getUsuarios({
@@ -55,7 +53,10 @@ export default function AdminUsuarios() {
       setItems(data); setTotal(count)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }
+  }, [debouncedQ, filtroRol, filtroEscuela, page])
+
+  useEffect(() => { load() }, [load])
+  useAdminSectionRefresh('usuarios', load)
 
   async function confirmarCambioRol() {
     if (!cambioRol || guardandoRol || cambioRol.rol === cambioRol.nuevoRol) return

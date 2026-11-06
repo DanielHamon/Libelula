@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import AdminLayout from '../../components/AdminLayout'
 import { getLogs } from '../../services/admin.service'
@@ -45,17 +45,18 @@ export default function AdminLogs() {
   const [error, setError] = useState('')
   const [expandedId, setExpandedId] = useState(null)
 
-  useEffect(() => { load() }, [page])
-  useAdminSectionRefresh('logs', load)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
       const { data, count } = await getLogs({ offset: page * PAGE_SIZE, limit: PAGE_SIZE })
       setItems(data); setTotal(count)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }
+  }, [page])
+
+  useEffect(() => { load() }, [load])
+  useAdminSectionRefresh('logs', load)
 
   const pages = Math.ceil(total / PAGE_SIZE)
 

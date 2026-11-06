@@ -1,11 +1,12 @@
 import { registrarError } from '../lib/diagnostics'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getLibroConUnidades } from '../services/libros.service'
 import { evaluarIntento, getProgreso, getRespuestas, registrarProgreso } from '../services/progreso.service'
 import Sidebar from '../components/Sidebar'
-import { ActivityCard, C } from '../components/ActivityCard'
+import { ActivityCard } from '../components/ActivityCard'
+import { C } from '../components/activities/activityStyles'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 
 export default function Unidad() {
@@ -23,7 +24,6 @@ export default function Unidad() {
   const [cargando, setCargando] = useState(true)
   const actividadesScrollRef = useRef(null)
 
-  useEffect(() => { cargarDatos() }, [unidadId])
 
   useEffect(() => {
     if (cargando || !actividadesScrollRef.current) return
@@ -34,7 +34,7 @@ export default function Unidad() {
     return () => cancelAnimationFrame(frame)
   }, [cargando, scrollStorageKey])
 
-  async function cargarDatos() {
+  const cargarDatos = useCallback(async () => {
     setCargando(true)
     try {
       const { data: { user } } = await supabase.auth.getUser()
@@ -56,7 +56,9 @@ export default function Unidad() {
       setRespuestas(respuestasData)
     } catch (err) { registrarError("Unidad", err) }
     finally { setCargando(false) }
-  }
+  }, [libroId, unidadId])
+
+  useEffect(() => { cargarDatos() }, [cargarDatos])
 
   async function guardarProgreso(actividadId, respuesta, esCorrecta) {
     setErrorProgreso('')

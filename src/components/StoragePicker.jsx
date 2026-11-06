@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { uploadLibroArchivo, deleteLibroArchivo, listStorageFiles } from '../services/admin.service'
 import { C, S, btn, btnOutline } from '../lib/adminStyles'
@@ -16,9 +16,8 @@ export default function StoragePicker({ folder, accept, title, onSelect, onClose
   const uploadRef = useRef(null)
   const isImage = accept === 'image/*'
 
-  useEffect(() => { loadFiles() }, [])
 
-  async function loadFiles() {
+  const loadFiles = useCallback(async () => {
     setLoading(true); setError('')
     try {
       const result = await listStorageFiles(folder)
@@ -35,7 +34,9 @@ export default function StoragePicker({ folder, accept, title, onSelect, onClose
       }
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }
+  }, [folder, isImage])
+
+  useEffect(() => { loadFiles() }, [loadFiles])
 
   async function handleUpload(e) {
     const file = e.target.files[0]

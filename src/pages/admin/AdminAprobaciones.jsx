@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
@@ -38,10 +38,8 @@ export default function AdminAprobaciones() {
   const [procesando, setProcesando] = useState(null)
   const [error, setError] = useState('')
 
-  useEffect(() => { cargar() }, [estado])
-  useAdminSectionRefresh('aprobaciones', cargar)
 
-  async function cargar() {
+  const cargar = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
@@ -56,7 +54,10 @@ export default function AdminAprobaciones() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [estado])
+
+  useEffect(() => { cargar() }, [cargar])
+  useAdminSectionRefresh('aprobaciones', cargar)
 
   async function resolver(id, aprobar) {
     setProcesando(id)

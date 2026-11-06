@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
@@ -76,17 +76,18 @@ export default function AdminEscuelas() {
     return () => clearTimeout(t)
   }, [q])
 
-  useEffect(() => { load() }, [page, debouncedQ])
-  useAdminSectionRefresh('escuelas', load)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
       const { data, count } = await getEscuelas({ q: debouncedQ, offset: page * PAGE_SIZE, limit: PAGE_SIZE })
       setItems(data); setTotal(count)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }
+  }, [debouncedQ, page])
+
+  useEffect(() => { load() }, [load])
+  useAdminSectionRefresh('escuelas', load)
 
   const [confirmToggle, setConfirmToggle] = useState(null) // { id, nombre }
 
