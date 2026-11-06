@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { useParams, Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
@@ -19,10 +19,8 @@ export default function AdminEscuelaDetalle() {
   const [mensaje, setMensaje] = useState('')
   const [copiado, setCopiado] = useState(false)
 
-  useEffect(() => { load() }, [id])
-  useAdminSectionRefresh('escuelas', load)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
       const [detalle, todos] = await Promise.all([
@@ -34,7 +32,10 @@ export default function AdminEscuelaDetalle() {
       setLibrosDisponibles(todos.filter(l => !asignadosIds.has(l.id)))
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }
+  }, [id])
+
+  useEffect(() => { load() }, [load])
+  useAdminSectionRefresh('escuelas', load)
 
   async function handleAsignar() {
     if (!libroSel) return

@@ -1,10 +1,11 @@
 import { registrarError } from '../lib/diagnostics'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getProgresoConRespuestas } from '../services/docente.service'
 import { useWindowWidth } from '../hooks/useWindowWidth'
-import { C as Cact, TIPO_CONFIG as TipoConfig } from '../components/ActivityCard'
+import { C as Cact } from '../components/activities/activityStyles'
+import { TIPO_CONFIG as TipoConfig } from '../components/activities/activityConfig'
 
 const C = {
   navy: '#1e3a8a', navyDark: '#1e2f6e',
@@ -57,127 +58,6 @@ function formatEstado(tipo, completada, es_correcta) {
   if (es_correcta === true) return 'Correcta'
   if (es_correcta === false) return 'Incorrecta'
   return 'Completada'
-}
-
-function formatRespuesta(tipo, respuesta) {
-  if (!respuesta) return null
-  try {
-    switch (tipo) {
-      case 'seleccionMultiple':
-        {
-          const selecciones = Array.isArray(respuesta.seleccionadas)
-            ? respuesta.seleccionadas.filter(Boolean)
-            : respuesta.opcionElegida
-              ? [respuesta.opcionElegida]
-              : []
-          return selecciones.length ? `Seleccionó: ${selecciones.join(' | ')}` : 'Sin selección'
-        }
-      case 'verdaderoFalso':
-        return (respuesta.respuestas || [])
-          .map(r => `${r.esCorrecta ? '✅' : '❌'} ${r.texto?.slice(0, 40) ?? ''} → ${r.respondio ? 'Verdadero' : 'Falso'}`)
-          .join('\n')
-      case 'completarPalabras':
-        return (respuesta.respuestas || []).map((r, i) => `(${i + 1}) "${r.dada}" ← correcta: "${r.correcta}"`).join(' | ')
-      case 'ordenarEventos':
-        return (respuesta.orden || []).map((t, i) => `${i + 1}. ${t}`).join(' → ')
-      case 'escribirCarta': {
-        const txt = respuesta.texto || ''
-        return txt.length > 120 ? txt.slice(0, 120) + '…' : txt
-      }
-      case 'completarMapa':
-        return Object.values(respuesta.valores || {}).filter(Boolean).join(' | ')
-      case 'emparejar':
-        return `${(respuesta.parejas || []).length} pares: ${(respuesta.parejas || []).map(p => `${p.izquierda}↔${p.derecha}`).join(', ')}`
-      case 'identificar':
-        return `Identificó: ${(respuesta.seleccionadas || []).join(', ')}`
-      case 'termometroEmocional': {
-        const termometro = normalizarTermometroRespuesta(respuesta)[0]
-        return termometro ? `${termometro.label}: ${termometro.valor}/${termometro.max}${termometro.estado?.texto ? ` · ${termometro.estado.emoji || ''} ${termometro.estado.texto}` : ''}` : ''
-      }
-      case 'sopaLetras':
-        return `Palabras: ${(respuesta.palabrasEncontradas || []).join(', ')}`
-      case 'separarSilabas':
-        return (respuesta.respuestas || [])
-          .map(r => `${r.esCorrecta ? '✅' : '❌'} ${r.palabra}: ${r.silabasDadas || '-'} (${r.cantidadDada || '-'})`)
-          .join(' | ')
-      case 'acrostico':
-        return (respuesta.respuestas || []).map(r => `${r.letra}: ${r.texto || '-'}`).join(' | ')
-      case 'crucigrama': {
-        const correctas = (respuesta.respuestas || []).filter(r => r.esCorrecta).length
-        const total = (respuesta.respuestas || []).length
-        return `Letras correctas: ${correctas}/${total}`
-      }
-      case 'respiracionGuiada':
-        return `Completó ${respuesta.ciclos || ''} ciclo(s) de respiración`
-      case 'miniJuegoConteo':
-        return `Contó ${respuesta.contados || 0}/${respuesta.total || 0}`
-      case 'exploracionInteractiva':
-        return `Exploró ${(respuesta.exploradas || []).length}/${respuesta.total || 0}${respuesta.respuesta ? ` · ${respuesta.respuesta}` : ''}`
-      case 'selectorEmocionColor':
-        return `${respuesta.seleccion?.emoji || ''} ${respuesta.seleccion?.emocion || 'Sin selección'}${respuesta.seleccion?.etiquetaColor ? ` · ${respuesta.seleccion.etiquetaColor}` : ''}${respuesta.respuesta ? ` · ${respuesta.respuesta}` : ''}`
-      case 'mezclaPinturaGuiada':
-        return `${respuesta.ultimaMezcla?.colores?.join(' + ') || ''} = ${respuesta.ultimaMezcla?.nombre || ''}${respuesta.respuesta ? ` · ${respuesta.respuesta}` : ''}`
-      case 'tarjetasVolteables':
-        return `Descubrió ${respuesta.tarjetasDescubiertas?.length || 0}/${respuesta.total || 0} tarjetas`
-      case 'colorear':
-      case 'dibujoLibre':
-        return 'Completó el dibujo'
-      default:
-        return null
-    }
-  } catch { return null }
-}
-
-function formatCSVCell(tipo, respuesta) {
-  if (!respuesta) return ''
-  try {
-    switch (tipo) {
-      case 'seleccionMultiple': {
-        const selecciones = Array.isArray(respuesta.seleccionadas)
-          ? respuesta.seleccionadas.filter(Boolean)
-          : respuesta.opcionElegida
-            ? [respuesta.opcionElegida]
-            : []
-        return selecciones.join('; ')
-      }
-      case 'verdaderoFalso':
-        return (respuesta.respuestas || [])
-          .map(r => `${r.texto}: ${r.respondio ? 'V' : 'F'} (${r.esCorrecta ? 'ok' : 'mal'})`)
-          .join('; ')
-      case 'completarPalabras':
-        return (respuesta.respuestas || []).map(r => `"${r.dada}" (correcta: "${r.correcta}")`).join('; ')
-      case 'ordenarEventos': return (respuesta.orden || []).join(' > ')
-      case 'escribirCarta': return (respuesta.texto || '').replace(/\n/g, ' ')
-      case 'completarMapa': return Object.values(respuesta.valores || {}).filter(Boolean).join('; ')
-      case 'emparejar': return (respuesta.parejas || []).map(p => `${p.izquierda}=${p.derecha}`).join('; ')
-      case 'identificar': return (respuesta.seleccionadas || []).join('; ')
-      case 'termometroEmocional': {
-        const termometro = normalizarTermometroRespuesta(respuesta)[0]
-        return termometro ? `${termometro.label}: ${termometro.valor}/${termometro.max}${termometro.estado?.texto ? ` - ${termometro.estado.emoji || ''} ${termometro.estado.texto}` : ''}` : ''
-      }
-      case 'sopaLetras': return (respuesta.palabrasEncontradas || []).join('; ')
-      case 'separarSilabas':
-        return (respuesta.respuestas || []).map(r => `${r.palabra}: ${r.silabasDadas || ''} / ${r.cantidadDada || ''} (${r.esCorrecta ? 'ok' : 'mal'})`).join('; ')
-      case 'acrostico':
-        return (respuesta.respuestas || []).map(r => `${r.letra}: ${r.texto || ''}`).join('; ')
-      case 'crucigrama':
-        return (respuesta.palabras || []).map(r => `${r.palabra}: ${r.respuestaDada || ''} (${r.esCorrecta ? 'ok' : 'mal'})`).join('; ')
-      case 'respiracionGuiada':
-        return `Completó ${respuesta.ciclos || ''} ciclo(s)`
-      case 'miniJuegoConteo':
-        return `${respuesta.contados || 0}/${respuesta.total || 0}`
-      case 'exploracionInteractiva':
-        return `Exploró ${(respuesta.exploradas || []).length}/${respuesta.total || 0}${respuesta.respuesta ? ` - ${respuesta.respuesta}` : ''}`
-      case 'selectorEmocionColor':
-        return `${respuesta.seleccion?.emocion || ''}${respuesta.seleccion?.etiquetaColor ? ` (${respuesta.seleccion.etiquetaColor})` : ''}${respuesta.respuesta ? ` - ${respuesta.respuesta}` : ''}`
-      case 'mezclaPinturaGuiada':
-        return `${respuesta.ultimaMezcla?.colores?.join(' + ') || ''} = ${respuesta.ultimaMezcla?.nombre || ''}${respuesta.respuesta ? ` - ${respuesta.respuesta}` : ''}`
-      case 'tarjetasVolteables':
-        return (respuesta.tarjetasDescubiertas || []).map(card => card.frente).join('; ')
-      case 'colorear': case 'dibujoLibre': return 'Completado'
-      default: return ''
-    }
-  } catch { return '' }
 }
 
 function downloadCSV(filename, rows) {
@@ -260,9 +140,8 @@ export default function DocenteRespuestaEstudiante() {
   const [reintento, setReintento] = useState(0)
   const [detalleOpen, setDetalleOpen] = useState(false)
 
-  useEffect(() => { init() }, [])
 
-  async function init() {
+  const init = useCallback(async () => {
     try {
       const [claseRes, estRes] = await Promise.all([
         supabase.from('clases').select('nombre, codigo, clase_libros(libro_id, libro_titulo)').eq('id', claseId).single(),
@@ -285,7 +164,9 @@ export default function DocenteRespuestaEstudiante() {
       }
     } catch (e) { registrarError("DocenteRespuestaEstudiante", e) }
     finally { setLoading(false) }
-  }
+  }, [claseId, estudianteId, searchParams, setSearchParams])
+
+  useEffect(() => { init() }, [init])
 
   useEffect(() => {
     if (!libroSel) return

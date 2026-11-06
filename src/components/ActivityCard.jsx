@@ -1,5 +1,5 @@
 import { C, btnP, btnS, arrBtn } from './activities/activityStyles'
-export { C } from './activities/activityStyles'
+import { TIPO_CONFIG } from './activities/activityConfig'
 import { FeedbackBox, AttemptsLeft, MissingField } from './activities/ActivityFeedback'
 import TarjetasVolteables from './activities/TarjetasVolteables'
 import SeleccionMultiple from './activities/SeleccionMultiple'
@@ -7,42 +7,8 @@ import { registrarError } from '../lib/diagnostics'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 
-// ── Palette ───────────────────────────────────────────────────────────────────
-
-
-export const TIPO_CONFIG = {
-  video:             { icon: '▶️', label: 'Video',              color: C.blue,   bg: C.blueLight   },
-  audio:             { icon: '🔊', label: 'Audio',              color: C.purple, bg: C.purpleLight  },
-  imagen:            { icon: '🖼️', label: 'Imagen',             color: C.teal,   bg: C.tealLight   },
-  colorear:          { icon: '🎨', label: 'Colorear',           color: C.pink,   bg: C.pinkLight   },
-  termometroEmocional:{ icon: '🌡️', label: 'Termómetro',        color: C.orange, bg: C.orangeLight },
-  clasificacionCategorias:{ icon: '🧩', label: 'Clasificar',     color: C.teal,   bg: C.tealLight   },
-  separarSilabas:    { icon: '🔡', label: 'Sílabas',            color: C.purple, bg: C.purpleLight },
-  acrostico:          { icon: '✨', label: 'Acróstico',          color: C.orange, bg: C.orangeLight },
-  crucigrama:         { icon: '▦', label: 'Crucigrama',         color: C.blue,   bg: C.blueLight   },
-  respiracionGuiada:  { icon: '🌬️', label: 'Respiración',       color: C.blue,   bg: C.blueLight   },
-  miniJuegoConteo:    { icon: '🎈', label: 'Mini-juego',         color: C.pink,   bg: C.pinkLight   },
-  exploracionInteractiva:{ icon: '🔎', label: 'Explorar',        color: C.teal,   bg: C.tealLight   },
-  selectorEmocionColor:{ icon: '🎨', label: 'Emoción y color',   color: C.purple, bg: C.purpleLight },
-  mezclaPinturaGuiada:{ icon: '🖌️', label: 'Mezcla de colores', color: C.pink,   bg: C.pinkLight   },
-  tarjetasVolteables:{ icon: '🃏', label: 'Voltea y descubre', color: C.purple, bg: C.purpleLight },
-  sopaLetras:        { icon: '🔤', label: 'Sopa de letras',     color: C.green,  bg: C.greenLight  },
-  seleccionMultiple: { icon: '🎯', label: 'Selección múltiple', color: C.pink,   bg: C.pinkLight   },
-  verdaderoFalso:    { icon: '⚖️', label: 'Verdadero / Falso',  color: C.teal,   bg: C.tealLight   },
-  completarPalabras: { icon: '✏️', label: 'Completar',          color: C.purple, bg: C.purpleLight  },
-  ordenarEventos:    { icon: '🔢', label: 'Ordenar',            color: C.blue,   bg: C.blueLight   },
-  ordenarPalabras:   { icon: '🔤', label: 'Ordenar palabras',   color: C.teal,   bg: C.tealLight   },
-  escribirCarta:     { icon: '✉️', label: 'Escribir',           color: C.orange, bg: C.orangeLight  },
-  completarMapa:     { icon: '🗺️', label: 'Mapa',               color: C.green,  bg: C.greenLight  },
-  emparejar:         { icon: '🔗', label: 'Emparejar',          color: C.blue,   bg: C.blueLight   },
-  dibujoLibre:       { icon: '✏️', label: 'Dibujo libre',       color: C.pink,   bg: C.pinkLight   },
-  identificar:       { icon: '🔍', label: 'Identificar',        color: C.orange, bg: C.orangeLight },
-  reflexionPersonal: { icon: '💭', label: 'Reflexión personal', color: C.purple, bg: C.purpleLight },
-  lineaTiempoEmocional:{ icon: '💞', label: 'Emociones',        color: C.purple, bg: C.purpleLight },
-}
-
 // ── Word-search helpers ───────────────────────────────────────────────────────
-export function generateGrid(palabras, size) {
+function generateGrid(palabras, size) {
   const grid = Array.from({ length: size }, () => Array(size).fill(''))
   const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1]]
   for (const word of palabras) {
@@ -171,7 +137,7 @@ function ActivityContent({ act, isMobile, completada, respuestaGuardada, onCompl
     case 'ordenarPalabras':   return <OrdenarPalabras {...p} instruccion={act.instruccion} pista={act.pista} fraseCorrecta={act.fraseCorrecta} palabras={act.palabras ?? []} textoArea={act.textoArea} maxIntentos={maxIntentos} />
     case 'escribirCarta':     return <EscribirCarta {...p} actividadId={act.id} destinatario={act.destinatario} promptTexto={act.promptTexto} placeholder={act.placeholder} />
     case 'completarMapa':     return <CompletarMapa {...p} actividadId={act.id} instruccion={act.instruccion} nodos={act.nodos ?? []} />
-    case 'emparejar':         return onAttempt ? <EmparejarServidor {...p} pares={act.pares ?? []} elementosIzquierda={act.elementosIzquierda ?? []} elementosDerecha={act.elementosDerecha ?? []} instruccion={act.instruccion} encabezadoIzquierda={act.encabezadoIzquierda} encabezadoDerecha={act.encabezadoDerecha} maxIntentos={maxIntentos} /> : <Emparejar {...p} pares={act.pares ?? []} instruccion={act.instruccion} encabezadoIzquierda={act.encabezadoIzquierda} encabezadoDerecha={act.encabezadoDerecha} maxIntentos={maxIntentos} />
+    case 'emparejar':         return onAttempt ? <EmparejarServidor {...p} pares={act.pares ?? []} elementosIzquierda={act.elementosIzquierda ?? []} elementosDerecha={act.elementosDerecha ?? []} instruccion={act.instruccion} encabezadoIzquierda={act.encabezadoIzquierda} encabezadoDerecha={act.encabezadoDerecha} maxIntentos={maxIntentos} /> : <Emparejar {...p} key={`${act.id}-${JSON.stringify(act.pares ?? [])}-${completada}`} pares={act.pares ?? []} instruccion={act.instruccion} encabezadoIzquierda={act.encabezadoIzquierda} encabezadoDerecha={act.encabezadoDerecha} maxIntentos={maxIntentos} />
     case 'dibujoLibre':       return <DibujoLibre {...p} actividadId={act.id} instruccion={act.instruccion} />
     case 'identificar':       return <IdentificarActividad {...p} instruccion={act.instruccion} opciones={act.opciones ?? []} maxIntentos={maxIntentos} />
     case 'reflexionPersonal': return <ReflexionPersonal {...p} actividadId={act.id} instruccion={act.instruccion} opciones={act.opciones ?? []} preguntaAbierta={act.preguntaAbierta} placeholder={act.placeholder} textoBoton={act.textoBoton} />
@@ -222,7 +188,7 @@ const PRESET_COLORS = ['#EF4444','#F97316','#FACC15','#22C55E','#3B82F6','#A855F
 const BRUSH_SIZES = [{ label: 'Fino', size: 4 }, { label: 'Normal', size: 11 }, { label: 'Grueso', size: 26 }]
 const sTitle = { fontSize: 10, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.6, margin: '0 0 6px' }
 
-function ColorearActividad({ imagenUrl, actividadId, isMobile, onComplete, alreadyComplete }) {
+function ColorearActividad({ imagenUrl, actividadId, isMobile, onComplete }) {
   const canvasRef = useRef(null)
   const [tool, setTool] = useState('pencil')
   const [brushSize, setBrushSize] = useState(11)
@@ -235,7 +201,9 @@ function ColorearActividad({ imagenUrl, actividadId, isMobile, onComplete, alrea
   const saveDrawingTimerRef = useRef(null), onCompleteRef = useRef(onComplete)
   const toolRef = useRef(tool), brushSizeRef = useRef(brushSize), colorRef = useRef(color)
   const saveTimerRef = useRef(null)
-  onCompleteRef.current = onComplete; toolRef.current = tool; brushSizeRef.current = brushSize; colorRef.current = color
+  useEffect(() => {
+    onCompleteRef.current = onComplete; toolRef.current = tool; brushSizeRef.current = brushSize; colorRef.current = color
+  }, [onComplete, tool, brushSize, color])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null))
@@ -254,12 +222,6 @@ function ColorearActividad({ imagenUrl, actividadId, isMobile, onComplete, alrea
     const prev = e => e.preventDefault()
     canvas.addEventListener('touchstart', prev, { passive: false }); canvas.addEventListener('touchmove', prev, { passive: false })
     return () => { canvas.removeEventListener('touchstart', prev); canvas.removeEventListener('touchmove', prev) }
-  }, [])
-
-  useEffect(() => {
-    const onUp = () => { if (isDrawingRef.current) stopDrawing() }
-    document.addEventListener('mouseup', onUp); document.addEventListener('touchend', onUp)
-    return () => { document.removeEventListener('mouseup', onUp); document.removeEventListener('touchend', onUp) }
   }, [])
 
   function getPos(e) {
@@ -304,6 +266,12 @@ function ColorearActividad({ imagenUrl, actividadId, isMobile, onComplete, alrea
       setSaveStatus('saved'); setTimeout(() => setSaveStatus(null), 2000)
     }, 80)
   }
+  useEffect(() => {
+    const onUp = () => { if (isDrawingRef.current) stopDrawing() }
+    document.addEventListener('mouseup', onUp); document.addEventListener('touchend', onUp)
+    return () => { document.removeEventListener('mouseup', onUp); document.removeEventListener('touchend', onUp) }
+  })
+
   function undo() {
     if (!undoStack.length) return
     const stack = [...undoStack], snap = stack.pop(); setUndoStack(stack)
@@ -380,10 +348,12 @@ function SopaLetras({ isMobile, onComplete, onAttempt, alreadyComplete, completa
     obs.observe(el); return () => obs.disconnect()
   }, [espacio])
 
-  isSelectingRef.current = isSelecting; startCellRef.current = startCell; currentCellRef.current = currentCell
-  foundWordsRef.current = foundWords; foundCellKeysRef.current = foundCellKeys
-  onCompleteRef.current = onComplete; onAttemptRef.current = onAttempt; gameWonRef.current = gameWon
-  palabrasRef.current = palabras; numPalabrasRef.current = palabras.length
+  useEffect(() => {
+    isSelectingRef.current = isSelecting; startCellRef.current = startCell; currentCellRef.current = currentCell
+    foundWordsRef.current = foundWords; foundCellKeysRef.current = foundCellKeys
+    onCompleteRef.current = onComplete; onAttemptRef.current = onAttempt; gameWonRef.current = gameWon
+    palabrasRef.current = palabras; numPalabrasRef.current = palabras.length
+  }, [isSelecting, startCell, currentCell, foundWords, foundCellKeys, onComplete, onAttempt, gameWon, palabras])
 
   const selPath = startCell && currentCell ? linePath(startCell, currentCell) : null
 
@@ -514,7 +484,6 @@ function ClasificacionCategorias({ instruccion, categorias, items, isMobile, onC
   const [correctoServidor, setCorrectoServidor] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [errorIntento, setErrorIntento] = useState('')
-  const [dropTarget, setDropTarget] = useState(null)
   const firedRef = useRef(false)
   const serverMode = typeof onAttempt === 'function'
 
@@ -1244,7 +1213,7 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
     if (letter) window.setTimeout(() => focusSiblingCell(key, false), 0)
   }
 
-  function buildPayload() {
+  const buildPayload = useCallback(() => {
     if (serverMode) {
       return {
         palabras: words.map(word => ({
@@ -1279,14 +1248,14 @@ function Crucigrama({ actividadId, instruccion, pista, palabras, filas, columnas
         }).every(Boolean),
       })),
     }
-  }
+  }, [serverMode, words, cellKeys, respuestas, cells])
 
   useEffect(() => {
     if (!serverMode && allOk && !firedRef.current) {
       firedRef.current = true
       onComplete(buildPayload(), true)
     }
-  }, [allOk])
+  }, [allOk, buildPayload, onComplete, serverMode])
 
   async function verificar() {
     if (!serverMode || isLocked || !allFilled) return
@@ -1484,7 +1453,6 @@ function setCrosswordCellValue(respuestas, key, value) {
 
 // ── Respiración guiada ────────────────────────────────────────────────────────
 function RespiracionGuiada({
-  actividadId,
   instruccion,
   mensajeFinal = '¡Muy bien! Respiraste con calma.',
   ciclos = 3,
@@ -1624,7 +1592,6 @@ function RespiracionGuiada({
 
 // ── Mini-juego de conteo ──────────────────────────────────────────────────────
 function MiniJuegoConteo({
-  actividadId,
   instruccion,
   emoji = '🎈',
   cantidad = 10,
@@ -1774,10 +1741,12 @@ function MezclaPinturaGuiada({ actividadId, instruccion, colores, mezclas, numMe
   const [descubiertas, setDescubiertas] = useState(() => new Set())
   const [respuesta, setRespuesta] = useState(() => localStorage.getItem(`mezcla_respuesta_${actividadId}`) || '')
   const firedRef = useRef(false)
+  const [entregada, setEntregada] = useState(false)
 
   function completar(discovered, result, selected, answer = respuesta) {
     if (firedRef.current) return
     firedRef.current = true
+    setEntregada(true)
     onComplete({
       mezclas: [...discovered],
       ultimaMezcla: { colores: selected.map(item => item.nombre), nombre: result.nombre, hex: result.hex },
@@ -1836,12 +1805,12 @@ function MezclaPinturaGuiada({ actividadId, instruccion, colores, mezclas, numMe
       {pregunta && (
         <div style={{ padding: 14, borderRadius: 13, background: C.purpleLight, border: '2px solid #D8B4FE' }}>
           <label style={{ display: 'block', marginBottom: 8, color: C.purple, fontSize: 13, fontWeight: 900 }}>💭 {pregunta}</label>
-          <textarea value={respuesta} onChange={e => cambiarRespuesta(e.target.value)} onBlur={guardarRespuesta} disabled={completada || firedRef.current} placeholder={placeholder} style={{ width: '100%', minHeight: 76, boxSizing: 'border-box', resize: 'vertical', padding: '11px 12px', borderRadius: 11, border: '2px solid #C4B5FD', background: '#fff', color: C.text, fontFamily: 'Nunito', fontSize: 14, outline: 'none' }} />
+          <textarea value={respuesta} onChange={e => cambiarRespuesta(e.target.value)} onBlur={guardarRespuesta} disabled={completada || entregada} placeholder={placeholder} style={{ width: '100%', minHeight: 76, boxSizing: 'border-box', resize: 'vertical', padding: '11px 12px', borderRadius: 11, border: '2px solid #C4B5FD', background: '#fff', color: C.text, fontFamily: 'Nunito', fontSize: 14, outline: 'none' }} />
           {descubiertas.size >= target && !respuesta.trim() && <div style={{ marginTop: 6, color: C.textMuted, fontSize: 11, fontWeight: 700 }}>Escribe tu respuesta para completar la actividad.</div>}
         </div>
       )}
       <span style={{ fontSize: 13, fontWeight: 800, color: descubiertas.size >= target ? C.green : C.textMuted }}>Mezclas descubiertas: {descubiertas.size} / {target}</span>
-      {(completada || firedRef.current) && <FeedbackBox ok msg={mensajeFinal} />}
+      {(completada || entregada) && <FeedbackBox ok msg={mensajeFinal} />}
     </div>
   )
 }
@@ -2125,7 +2094,8 @@ function VerdaderoFalso({ afirmaciones, onComplete, onAttempt, completada, saved
   const [intentos, setIntentos] = useState(0)
   const [enviando, setEnviando] = useState(false)
   const [errorIntento, setErrorIntento] = useState('')
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   const serverMode = typeof onAttempt === 'function'
   const locked = completada || enviando || resultado === 'correct' || resultado === 'agotado'
 
@@ -2219,7 +2189,8 @@ function CompletarPalabras({ texto, respuestas, onComplete, onAttempt, completad
   const [errorIntento, setErrorIntento] = useState('')
   const [dropTarget, setDropTarget] = useState(null)
   const firedRef = useRef(false)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   const serverMode = typeof onAttempt === 'function'
 
   async function verificar() {
@@ -2377,7 +2348,8 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
   const [enviando, setEnviando] = useState(false)
   const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   const serverMode = typeof onAttempt === 'function'
 
   useEffect(() => {
@@ -2386,7 +2358,7 @@ function OrdenarPalabras({ instruccion, pista, fraseCorrecta, palabras, textoAre
     if (!completada) setSeleccionadas([])
     setResultado(null)
     setIntentos(0)
-  }, [wordsKey])
+  }, [wordsKey, completada])
 
   const isLocked = enviando || resultado === 'correcto' || resultado === 'agotado' || completada
   const disponibles = ordenBanco.filter(index => !seleccionadas.includes(index))
@@ -2506,7 +2478,8 @@ function OrdenarEventos({ instruccion, eventos, onComplete, onAttempt, completad
   const [draggingIndex, setDraggingIndex] = useState(null)
   const [dragOverIndex, setDragOverIndex] = useState(null)
   const firedRef = useRef(false)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   const serverMode = typeof onAttempt === 'function'
 
   useEffect(() => {
@@ -2519,7 +2492,7 @@ function OrdenarEventos({ instruccion, eventos, onComplete, onAttempt, completad
     setDraggingIndex(null)
     setDragOverIndex(null)
     firedRef.current = false
-  }, [eventsKey])
+  }, [eventsKey, completada])
 
   function mover(idx, dir) {
     if (correcto || agotado || completada) return
@@ -2643,7 +2616,8 @@ function EscribirCarta({ actividadId, destinatario, promptTexto, placeholder = '
   const key = `carta_${actividadId}`
   const [texto, setTexto] = useState(() => savedAnswer?.texto || localStorage.getItem(key) || '')
   const [guardado, setGuardado] = useState(false)
-  const saveTimer = useRef(null), onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const saveTimer = useRef(null), onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   function handleChange(e) { const v = e.target.value; setTexto(v); setGuardado(false); if (saveTimer.current) clearTimeout(saveTimer.current); saveTimer.current = setTimeout(() => { localStorage.setItem(key, v); setGuardado(true) }, 500) }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -2666,7 +2640,8 @@ function CompletarMapa({ actividadId, instruccion, nodos, onComplete, completada
     if (savedAnswer?.valores) return savedAnswer.valores
     try { return JSON.parse(localStorage.getItem(key)) || {} } catch { return {} }
   })
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   function handleChange(id, val) { const n = { ...valores, [id]: val }; setValores(n); localStorage.setItem(key, JSON.stringify(n)) }
   const todosLlenos = nodos.length > 0 && nodos.every(n => (valores[n.id] || '').trim())
   return (
@@ -2914,31 +2889,21 @@ function EmparejarServidor({
 }
 
 function Emparejar({ pares, instruccion, encabezadoIzquierda = 'Elemento', encabezadoDerecha = '¿Qué hace?', onComplete, completada, savedAnswer, isMobile, maxIntentos = 2, primaryColor = C.blue }) {
-  const pairKey = JSON.stringify(pares)
-  const [derechaShuffled, setDerechaShuffled] = useState(() => desordenarSinCoincidencias(pares))
+  const [derechaShuffled] = useState(() => desordenarSinCoincidencias(pares))
   const [selIzqIdx, setSelIzqIdx] = useState(null)
   const savedMatchedIndices = () => new Set(
     pares.map((par, index) => savedAnswer?.parejas?.some(saved =>
       saved.izquierda === par.izquierda && saved.derecha === par.derecha
     ) ? index : null).filter(index => index != null)
   )
-  const [matchedPairs, setMatchedPairs] = useState(savedMatchedIndices)
+  const [matchedPairs, setMatchedPairs] = useState(() => completada ? savedMatchedIndices() : new Set())
   const [wrongDerIdx, setWrongDerIdx] = useState(null)
   const [gameWon, setGameWon] = useState(completada)
   const [errores, setErrores] = useState(0)
   const wrongTimer = useRef(null)
   const firedRef = useRef(false)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
-
-  useEffect(() => {
-    const nextPairs = JSON.parse(pairKey)
-    setDerechaShuffled(desordenarSinCoincidencias(nextPairs))
-    setSelIzqIdx(null)
-    setMatchedPairs(completada ? savedMatchedIndices() : new Set())
-    setWrongDerIdx(null)
-    setGameWon(completada)
-    setErrores(0)
-  }, [pairKey, completada])
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
   const derToPairIdx = derechaShuffled.map(rItem => pares.findIndex(p => p.derecha === rItem.derecha))
 
@@ -3059,7 +3024,8 @@ function IdentificarActividad({ instruccion, opciones, onComplete, onAttempt, co
   const [enviando, setEnviando] = useState(false)
   const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   const serverMode = typeof onAttempt === 'function'
 
   function toggle(idx) {
@@ -3190,7 +3156,8 @@ function LineaTiempoEmocional({
   const [enviando, setEnviando] = useState(false)
   const [errorIntento, setErrorIntento] = useState('')
   const firedRef = useRef(false)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   const serverMode = typeof onAttempt === 'function'
   const locked = enviando || resultado === 'correcto' || resultado === 'agotado' || completada
 
@@ -3321,7 +3288,8 @@ function ReflexionPersonal({
   const [respuesta, setRespuesta] = useState(() => savedAnswer?.respuesta || localStorage.getItem(`${storageKey}_respuesta`) || '')
   const [guardada, setGuardada] = useState(completada)
   const firedRef = useRef(false)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
   const primaryLight = `${primaryColor}18`
   const primaryBorder = `${primaryColor}55`
 
@@ -3414,11 +3382,12 @@ function TermometroEmocional({ actividadId, instruccion, label, emoji, estados, 
         const first = Object.values(saved).find(v => Number.isFinite(Number(v)))
         if (first !== undefined) return Number(first)
       }
-    } catch {}
+    } catch { return middle }
     return middle
   })
   const [entregado, setEntregado] = useState(completada)
-  const onCompleteRef = useRef(onComplete); onCompleteRef.current = onComplete
+  const onCompleteRef = useRef(onComplete)
+  useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
   function estadoActual(value) {
     return estadosOrdenados.reduce((actual, estado) => {

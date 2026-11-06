@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -65,6 +65,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   const doublePage = windowWidth > 860
 
   const [numPages, setNumPages] = useState(null)
+  const [loadedBookId, setLoadedBookId] = useState(null)
   const [pdfDoc, setPdfDoc] = useState(null)
   const [spread, setSpread] = useState(0)
   const [flipState, setFlipState] = useState('idle')
@@ -75,32 +76,23 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   const containerRef = useRef(null)
   const outerRef = useRef(null)
   const animTimerRef = useRef(null)
-  const restoredRef = useRef(false)
+  const restoredRef = useRef(null)
 
   useEffect(() => {
-    if (!numPages || !libroId || restoredRef.current) return
-    restoredRef.current = true
-    const saved = getSavedSpread(libroId)
-    const total = doublePage ? Math.ceil(numPages / 2) : numPages
-    if (saved > 0 && saved < total) setSpread(saved)
-  }, [numPages, libroId, doublePage])
+    if (!libroId || !numPages || loadedBookId !== libroId) return
+    try { localStorage.setItem(`iabooks_spread_${libroId}`, spread) } catch { return }
+  }, [spread, libroId, numPages, loadedBookId])
 
   useEffect(() => {
-    if (!libroId || !numPages) return
-    try { localStorage.setItem(`iabooks_spread_${libroId}`, spread) } catch {}
-  }, [spread, libroId, numPages])
-
-  const calcPageWidth = useCallback(() => {
-    if (!containerRef.current) return
-    const available = containerRef.current.clientWidth - 120
-    setPageWidth(doublePage ? Math.floor((available - 12) / 2) : available)
+    const container = containerRef.current
+    if (!container) return
+    const observer = new ResizeObserver(([entry]) => {
+      const available = entry.contentRect.width - 120
+      setPageWidth(doublePage ? Math.floor((available - 12) / 2) : available)
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
   }, [doublePage])
-
-  useEffect(() => {
-    calcPageWidth()
-    window.addEventListener('resize', calcPageWidth)
-    return () => window.removeEventListener('resize', calcPageWidth)
-  }, [calcPageWidth])
 
   useEffect(() => () => { if (animTimerRef.current) clearTimeout(animTimerRef.current) }, [])
 
@@ -258,7 +250,17 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
               file={pdfUrl}
               onSourceError={onPdfError}
               onLoadError={onPdfError}
-              onLoadSuccess={pdf => { setNumPages(pdf.numPages); setPdfDoc(pdf) }}
+              onLoadSuccess={pdf => {
+                if (libroId && restoredRef.current !== libroId) {
+                  restoredRef.current = libroId
+                  const saved = getSavedSpread(libroId)
+                  const total = doublePage ? Math.ceil(pdf.numPages / 2) : pdf.numPages
+                  setSpread(saved > 0 && saved < total ? saved : 0)
+                }
+                setNumPages(pdf.numPages)
+                setPdfDoc(pdf)
+                setLoadedBookId(libroId)
+              }}
               loading={
                 <div style={{ display: 'flex' }}>
                   <PageSkeleton width={pageWidth} />
@@ -345,12 +347,12 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
       {/* TTS Reader */}
       {SHOW_VOICE_READER && pdfDoc && (
         <LectorVoz
+          key={spread}
           pdfDoc={pdfDoc}
           leftPageNum={leftPageNum}
           rightPageNum={rightPageNum}
           numPages={numPages}
           doublePage={doublePage}
-          spread={spread}
         />
       )}
 
@@ -378,11 +380,11 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
 
 // ─── TTS Reader ──────────────────────────────────────────────────────────────
 
-function LectorVoz({ pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, spread }) {
+function LectorVoz({ pdfDoc, leftPageNum, rightPageNum, numPages, doublePage }) {
   const [estado, setEstado] = useState('parado') // parado | leyendo | pausado
   const [voces, setVoces] = useState([])
   const [vozIdx, setVozIdx] = useState(0)
-  const [velocidad, setVelocidad] = useState(1.0)
+  const velocidad = 1.0
   const [sinTexto, setSinTexto] = useState(false)
   const uttRef = useRef(null)
   // keepAlive: browsers pause speech after ~15 s in background tab
@@ -402,11 +404,6 @@ function LectorVoz({ pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, sp
     window.speechSynthesis.addEventListener('voiceschanged', cargar)
     return () => window.speechSynthesis.removeEventListener('voiceschanged', cargar)
   }, [])
-
-  // Stop reading when page changes
-  useEffect(() => {
-    detener()
-  }, [spread])
 
   useEffect(() => {
     return () => {
@@ -642,7 +639,8 @@ function HotspotOverlay({ hotspot, onClick }) {
 function VideoModal({ hotspot, onClose }) {
   const videoRef = useRef(null)
   useEffect(() => {
-    return () => { if (videoRef.current) { videoRef.current.pause(); videoRef.current.src = '' } }
+    const video = videoRef.current
+    return () => { if (video) { video.pause(); video.src = '' } }
   }, [])
 
   return (

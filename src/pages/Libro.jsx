@@ -1,5 +1,5 @@
 import { registrarError } from '../lib/diagnostics'
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { getLibroConUnidades } from '../services/libros.service'
@@ -47,7 +47,6 @@ export default function Libro() {
   const accentLight = accent + '22'
   const accentBg = libro?.color_fondo_actividades || accent + '09'
 
-  useEffect(() => { cargarDatos() }, [libroId])
 
   useEffect(() => {
     if (cargando || tab !== 'actividades' || !actividadesScrollRef.current) return
@@ -79,7 +78,7 @@ export default function Libro() {
     setSeccionActiva(index)
   }
 
-  async function cargarDatos() {
+  const cargarDatos = useCallback(async () => {
     setCargando(true)
     setErrorCarga(null)
     try {
@@ -105,7 +104,9 @@ export default function Libro() {
       setRespuestas(respuestasData)
     } catch (err) { registrarError("Libro", err) }
     finally { setCargando(false) }
-  }
+  }, [libroId])
+
+  useEffect(() => { cargarDatos() }, [cargarDatos])
 
   async function guardarProgreso(actividadId, unidadId, respuesta, esCorrecta) {
     setErrorProgreso('')

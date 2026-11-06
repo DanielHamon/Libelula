@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAdminSectionRefresh } from '../../hooks/useAdminSectionRefresh'
 import { useParams, Link } from 'react-router-dom'
 import AdminLayout from '../../components/AdminLayout'
@@ -10,7 +10,8 @@ import {
 import StoragePicker from '../../components/StoragePicker'
 import { supabase } from '../../lib/supabase'
 import { C, S, btn, btnOutline, badge } from '../../lib/adminStyles'
-import { ActivityCard, TIPO_CONFIG } from '../../components/ActivityCard'
+import { ActivityCard } from '../../components/ActivityCard'
+import { TIPO_CONFIG } from '../../components/activities/activityConfig'
 import BookPaletteFields from '../../components/BookPaletteFields'
 import { normalizeBookPalette } from '../../lib/bookPalette'
 import { useWindowWidth } from '../../hooks/useWindowWidth'
@@ -2159,15 +2160,16 @@ function UnidadRow({ unidad, unidades, activitiesVersion, index, total, onMover,
   const draggingActIdRef = useRef(null)
 
   useEffect(() => {
-    if (actividades !== null) reloadActs()
-  }, [activitiesVersion])
+    if (!open) return
+    let active = true
+    getActividades(unidad.id)
+      .then(data => { if (active) setActividades(data) })
+      .catch(error => { if (active) setError(error.message) })
+    return () => { active = false }
+  }, [activitiesVersion, open, unidad.id])
 
   async function toggleOpen() {
     if (editando) return
-    if (!open && actividades === null) {
-      const data = await getActividades(unidad.id)
-      setActividades(data)
-    }
     setOpen(o => !o)
   }
 
@@ -2435,10 +2437,7 @@ export default function AdminLibroDetalle() {
   const [exito, setExito] = useState('')
   const [activitiesVersion, setActivitiesVersion] = useState(0)
 
-  useEffect(() => { load() }, [id])
-  useAdminSectionRefresh('libros', refreshContent)
-
-  async function refreshContent() {
+  const refreshContent = useCallback(async () => {
     setError('')
     try {
       setUnidades(await getUnidades(id))
@@ -2446,9 +2445,10 @@ export default function AdminLibroDetalle() {
     } catch (e) {
       setError(e.message)
     }
-  }
+  }, [id])
+  useAdminSectionRefresh('libros', refreshContent)
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true); setError('')
     try {
       const [{ data: libroData }, uData, gData] = await Promise.all([
@@ -2471,7 +2471,8 @@ export default function AdminLibroDetalle() {
       setGrados(gData)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
-  }
+  }, [id])
+  useEffect(() => { load() }, [load])
 
   async function handleGuardarMeta(e) {
     e.preventDefault()
