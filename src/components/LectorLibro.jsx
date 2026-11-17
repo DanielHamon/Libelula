@@ -3,6 +3,7 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { useWindowWidth } from '../hooks/useWindowWidth'
+import NarradorLibro from './NarradorLibro'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -12,6 +13,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 const C = { primary: '#2563EB', primaryLight: '#DBEAFE' }
 const ANIM_MS = 1100
 const SHOW_VOICE_READER = false
+const PILOT_VOICE_BOOK_ID = 'roja_como_un_tomate'
 
 function getSavedSpread(libroId) {
   try { return parseInt(localStorage.getItem(`iabooks_spread_${libroId}`), 10) || 0 }
@@ -353,6 +355,20 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
           rightPageNum={rightPageNum}
           numPages={numPages}
           doublePage={doublePage}
+        />
+      )}
+
+      {libroId === PILOT_VOICE_BOOK_ID && pdfDoc && (
+        <NarradorLibro
+          key={`${libroId}-${spread}-${doublePage}`}
+          libroId={libroId}
+          pdfDoc={pdfDoc}
+          leftPageNum={leftPageNum}
+          rightPageNum={rightPageNum}
+          numPages={numPages}
+          doublePage={doublePage}
+          onPrev={goPrev}
+          onNext={goNext}
         />
       )}
 
