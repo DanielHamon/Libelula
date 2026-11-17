@@ -1,6 +1,6 @@
 # Piloto local del lector de voz — Roja como un tomate
 
-**Alcance:** rama `feature/lector-voz-piloto`, Supabase local preservado. Una sola página del registro `roja_como_un_tomate`; el registro duplicado `roja` no se modifica. Ningún audio se generó con ElevenLabs.
+**Alcance:** rama `feature/lector-voz-piloto`, Supabase local preservado. El fixture inicial ocupa una página del registro `roja_como_un_tomate`; la prueba de ElevenLabs está preparada para cuatro páginas de una versión nueva. El registro duplicado `roja` no se modifica. Ningún audio se generó con ElevenLabs.
 
 ## Qué hace el código
 
@@ -36,3 +36,22 @@ La voz del navegador de prueba no emitió eventos `boundary`. Con los tramos de 
 Confirmar la versión final del PDF y registrar `voice_id`, modelo y ajustes exactos de ElevenLabs. Generar una nueva versión de narración con MP3 de las páginas elegidas, revisar el sonido y publicarla solo después de aprobarla. El tono WAV de la versión 1 permanece como fixture local y no debe copiarse a otro entorno.
 
 Este piloto aún usa navegación manual del audio; el avance automático y la precarga de la próxima página pertenecen a la integración posterior.
+
+## Prueba con ElevenLabs Free (preparada, aún sin generar)
+
+El tramo predeterminado es **PDF 8–11**, cuatro páginas consecutivas con texto extraíble: **707 caracteres** según el PDF local revisado el 17-11-2026. PDF 6 no se eligió porque aparece como imagen sin texto extraíble. El texto exacto que se enviaría se guarda solo en `.reports/voice-pilot/texto-para-narrar.json`, excluido de Git. Revisa ese archivo antes de generar.
+
+ElevenLabs publica 10.000 créditos mensuales para Free y un crédito por carácter para Multilingual v2. El costo esperado de este tramo es aproximadamente 707 créditos, sujeto al saldo real y a las condiciones de la cuenta. El script consulta la suscripción y se niega a generar si no es Free o si el saldo indicado no alcanza. Usa el endpoint oficial de creación de voz con `eleven_multilingual_v2` y `mp3_44100_128`. [Precios](https://elevenlabs.io/pricing), [API TTS](https://elevenlabs.io/docs/api-reference/text-to-speech/convert), [suscripción](https://elevenlabs.io/docs/api-reference/user/subscription/get).
+
+1. En ElevenLabs, crea una API key desde **Developers → API Keys** con permisos de TTS, consulta de voz y suscripción. Puedes ponerle un límite de créditos para este piloto. Copia el `voice_id` desde **My Voices → ⋯ → Copy voice ID**. [Claves](https://elevenlabs.io/docs/help-center/technical/how-do-i-authorize-myself-using-an-api-key), [voice ID](https://elevenlabs.io/docs/help-center/technical/how-do-i-find-the-voice-id-of-my-voices-via-the-website-and-api).
+2. Crea en el worktree el archivo ignorado `.env.elevenlabs.local` con permisos `600` y este contenido, usando tus propios valores. No pongas la clave en una variable `VITE_` ni la compartas por chat.
+
+   ```text
+   ELEVENLABS_API_KEY=tu_clave
+   ELEVENLABS_VOICE_ID=identificador_de_la_voz
+   ```
+
+3. Ejecuta `node scripts/elevenlabs-pilot.mjs plan` para revisar las páginas. Después, `node scripts/elevenlabs-pilot.mjs generate`. La generación guarda cada MP3 en `.reports/voice-pilot/audio-cache/`, lo valida, lo sube al bucket privado y crea una **versión 2 en borrador**. Repetir el comando omite páginas listas y reutiliza el archivo local si falló la subida, para no gastar créditos otra vez.
+4. Escucha los cuatro MP3. Cuando estén aprobados, ejecuta `node scripts/elevenlabs-pilot.mjs publish` para archivar el tono de prueba y mostrar la versión 2 en el lector local. La función SQL verifica que estén las cuatro páginas y sus objetos antes del cambio atómico.
+
+El generador acepta `--pages` con tres o cuatro páginas PDF consecutivas, por ejemplo `--pages 9,10,11`, y exige usar la misma selección al generar y publicar. No se hicieron llamadas a ElevenLabs ni se consumieron créditos durante la preparación de este código.

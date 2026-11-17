@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, extname, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import { getDocument, OPS } from 'pdfjs-dist/legacy/build/pdf.mjs'
 
@@ -181,7 +182,7 @@ function classifyPage(text, imageCount) {
   return 'lista'
 }
 
-async function readPdfPages(bytes) {
+export async function readPdfPages(bytes) {
   const loadingTask = getDocument({ data: new Uint8Array(bytes), useSystemFonts: true })
   const pdf = await loadingTask.promise
   const pages = []
@@ -201,7 +202,7 @@ async function readPdfPages(bytes) {
   return pages
 }
 
-function buildReport({ bookId, title, source, rawPages, includeText }) {
+export function buildReport({ bookId, title, source, rawPages, includeText }) {
   const repeatedMarginLines = findRepeatedMarginLines(rawPages)
   const pages = rawPages.map(page => {
     const { text, removed } = cleanPageLines(page.lines, repeatedMarginLines)
@@ -371,7 +372,9 @@ async function main() {
   console.log(`Resumen general: ${resolve(args.outputDir, '_resumen.json')}`)
 }
 
-main().catch(error => {
-  console.error(`Error: ${error.message}`)
-  process.exitCode = 1
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main().catch(error => {
+    console.error(`Error: ${error.message}`)
+    process.exitCode = 1
+  })
+}
