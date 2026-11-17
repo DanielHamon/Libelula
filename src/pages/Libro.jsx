@@ -296,7 +296,7 @@ export default function Libro() {
         {tab === 'leer' && (
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto' }}>
             {libro?.pdf_disponible
-              ? <LectorLibroPrivado key={libroId} pdfUrl={pdfUrl} expiresAt={libro.pdf_expires_at} libroId={libroId} hotspots={hotspots} />
+              ? <LectorLibroPrivado key={libroId} pdfUrl={pdfUrl} expiresAt={libro.pdf_expires_at} libroId={libroId} hotspots={hotspots} accent={accent} />
               : <TabEmpty icon="📚" msg="El PDF de este libro aún no está disponible." accent={accent} accentBg={accentBg} />
             }
           </div>

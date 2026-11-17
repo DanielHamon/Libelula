@@ -61,7 +61,7 @@ async function extractPageText(pdfDoc, pageNum) {
   }
 }
 
-export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevision = 0, onPdfError }) {
+export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevision = 0, onPdfError, accent }) {
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 768
   const doublePage = windowWidth > 860
@@ -369,6 +369,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
           doublePage={doublePage}
           onPrev={goPrev}
           onNext={goNext}
+          accent={accent}
         />
       )}
 

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { firmarNarracionPagina, getNarracionPublicada } from '../services/narraciones.service'
+import { createSpeechFallback } from '../lib/speechFallback'
+import './NarradorLibro.css'
 
 async function textoPagina(pdfDoc, pagina) {
   const page = await pdfDoc.getPage(pagina)
@@ -7,7 +9,7 @@ async function textoPagina(pdfDoc, pagina) {
   return content.items.map(item => item.str || '').join(' ').replace(/\s+/g, ' ').trim()
 }
 
-export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, onPrev, onNext }) {
+export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, onPrev, onNext, accent }) {
   const [narracion, setNarracion] = useState(null)
   const [estado, setEstado] = useState('cargando')
   const [pagina, setPagina] = useState(leftPageNum)
@@ -17,6 +19,7 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
   })
   const [origen, setOrigen] = useState(null)
   const audioRef = useRef(null)
+  const speechRef = useRef(null)
   const generationRef = useRef(0)
   const urlCacheRef = useRef(new Map())
 
@@ -27,7 +30,8 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
       audioRef.current.src = ''
       audioRef.current = null
     }
-    window.speechSynthesis?.cancel()
+    speechRef.current?.stop()
+    speechRef.current = null
     setEstado('parado')
     setOrigen(null)
   }, [])
@@ -46,6 +50,7 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = velocidad
+    speechRef.current?.setRate(velocidad)
     try { sessionStorage.setItem('iabooks_narracion_velocidad', velocidad) } catch { /* almacenamiento opcional */ }
   }, [velocidad])
 
@@ -80,13 +85,14 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
         const texto = await textoPagina(pdfDoc, pagina)
         if (request !== generationRef.current) return
         if (!texto) { setEstado('sin_audio'); return }
-        const utterance = new SpeechSynthesisUtterance(texto)
-        utterance.lang = 'es'
-        utterance.rate = velocidad
-        utterance.onend = () => { if (request === generationRef.current) setEstado('parado') }
-        utterance.onerror = () => { if (request === generationRef.current) setEstado('error') }
+        speechRef.current = createSpeechFallback({
+          synthesis: window.speechSynthesis,
+          Utterance: window.SpeechSynthesisUtterance,
+          onEnd: () => { if (request === generationRef.current) setEstado('parado') },
+          onError: () => { if (request === generationRef.current) setEstado('error') },
+        })
         setOrigen('dispositivo')
-        window.speechSynthesis.speak(utterance)
+        speechRef.current.start(texto, velocidad)
       }
       if (request === generationRef.current) setEstado('leyendo')
     } catch {
@@ -96,14 +102,14 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
 
   function pausar() {
     if (origen === 'grabada') audioRef.current?.pause()
-    else window.speechSynthesis?.pause()
+    else speechRef.current?.pause()
     setEstado('pausado')
   }
 
   async function continuar() {
     try {
       if (origen === 'grabada') await audioRef.current?.play()
-      else window.speechSynthesis?.resume()
+      else speechRef.current?.resume()
       setEstado('leyendo')
     } catch { setEstado('error') }
   }
@@ -113,31 +119,56 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
   const lastVisiblePage = doublePage ? Math.min(rightPageNum, numPages) : leftPageNum
   const statusText = {
     cargando: 'Preparando narración…',
-    parado: 'Lector de voz',
+    parado: `Página ${pagina} lista para escuchar`,
     leyendo: `Leyendo página ${pagina}`,
     pausado: `Pausado en página ${pagina}`,
     sin_audio: 'Esta página no tiene audio ni texto extraíble',
     error: 'No se pudo cargar la narración',
   }[estado]
+  const hasRecordedAudio = Boolean(narracion?.paginas.has(pagina))
 
   return (
-    <section aria-label="Lector de voz" style={{ marginTop: 20, padding: 16, background: '#fff', borderRadius: 14, width: '100%', maxWidth: 680, textAlign: 'center' }}>
-      <p role="status" style={{ margin: '0 0 10px', fontWeight: 700 }}>{statusText}</p>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', justifyContent: 'center' }}>
-        <button type="button" onClick={() => { detener(); onPrev() }} disabled={leftPageNum <= 1}>Anterior</button>
-        {doublePage && lastVisiblePage > leftPageNum && (
-          <select aria-label="Página para narrar" value={pagina} onChange={event => { detener(); setPagina(Number(event.target.value)) }}>
-            <option value={leftPageNum}>Página {leftPageNum}</option>
-            <option value={rightPageNum}>Página {rightPageNum}</option>
-          </select>
-        )}
-        <button type="button" onClick={estado === 'leyendo' ? pausar : estado === 'pausado' ? continuar : iniciar}
-          disabled={!narracion || estado === 'cargando'}>
-          {estado === 'leyendo' ? 'Pausar' : estado === 'pausado' ? 'Continuar' : 'Reproducir'}
+    <section className="voice-reader" aria-label="Lector de voz" style={{ '--voice-accent': accent || '#e91e8c' }}>
+      <div className="voice-reader__header">
+        <span className="voice-reader__icon" aria-hidden="true">🔊</span>
+        <div className="voice-reader__heading">
+          <span className="voice-reader__eyebrow">ACOMPAÑA TU LECTURA</span>
+          <h2>Lector de voz</h2>
+        </div>
+        <span className="voice-reader__source">{hasRecordedAudio ? 'Audio piloto' : 'Voz del dispositivo'}</span>
+      </div>
+
+      <p className="voice-reader__status" role="status">
+        <span className={`voice-reader__status-dot${estado === 'leyendo' ? ' is-playing' : ''}`} aria-hidden="true" />
+        {statusText}
+      </p>
+
+      <div className="voice-reader__controls">
+        <button className="voice-reader__nav" type="button" onClick={() => { detener(); onPrev() }} disabled={leftPageNum <= 1}>
+          <span aria-hidden="true">←</span><span>Anterior</span>
         </button>
-        <button type="button" onClick={iniciar} disabled={!narracion || estado === 'cargando'}>Reiniciar</button>
-        <button type="button" onClick={() => { detener(); onNext() }} disabled={lastVisiblePage >= numPages}>Siguiente</button>
-        <label>Velocidad{' '}
+        {doublePage && lastVisiblePage > leftPageNum && (
+          <label className="voice-reader__field">Página
+            <select aria-label="Página para narrar" value={pagina} onChange={event => { detener(); setPagina(Number(event.target.value)) }}>
+              <option value={leftPageNum}>{leftPageNum}</option>
+              <option value={rightPageNum}>{rightPageNum}</option>
+            </select>
+          </label>
+        )}
+        <button className="voice-reader__play" type="button"
+          onClick={estado === 'leyendo' ? pausar : estado === 'pausado' ? continuar : iniciar}
+          disabled={!narracion || estado === 'cargando'}>
+          <span aria-hidden="true">{estado === 'leyendo' ? '⏸' : '▶'}</span>
+          <span>{estado === 'leyendo' ? 'Pausar' : estado === 'pausado' ? 'Continuar' : 'Reproducir'}</span>
+        </button>
+        <button className="voice-reader__restart" type="button" onClick={iniciar}
+          disabled={!narracion || estado === 'cargando'} aria-label="Reiniciar lectura" title="Reiniciar lectura">
+          <span aria-hidden="true">↺</span>
+        </button>
+        <button className="voice-reader__nav" type="button" onClick={() => { detener(); onNext() }} disabled={lastVisiblePage >= numPages}>
+          <span>Siguiente</span><span aria-hidden="true">→</span>
+        </button>
+        <label className="voice-reader__field voice-reader__speed">Velocidad
           <select value={velocidad} onChange={event => setVelocidad(Number(event.target.value))}>
             <option value={0.8}>0,8×</option>
             <option value={1}>1×</option>
@@ -145,7 +176,7 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
           </select>
         </label>
       </div>
-      {origen === 'dispositivo' && <small>Voz del dispositivo: audio piloto no disponible en esta página.</small>}
+      {!hasRecordedAudio && <p className="voice-reader__note">Esta página usa la voz de tu navegador mientras preparamos su narración.</p>}
     </section>
   )
 }
