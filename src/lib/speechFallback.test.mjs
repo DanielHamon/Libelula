@@ -39,3 +39,21 @@ test('cambiar velocidad durante la lectura reinicia solo el texto pendiente', ()
   spoken[0].onend()
   assert.equal(spoken.length, 2)
 })
+
+test('sin eventos de palabra retoma desde el tramo actual, no desde la página', () => {
+  const spoken = []
+  const synthesis = { speak: utterance => spoken.push(utterance), cancel() {} }
+  const reader = createSpeechFallback({ synthesis, Utterance: FakeUtterance })
+  reader.start('La niña descubrió un color inesperado mientras caminaba por el jardín y luego llamó a sus amigos para contarles la historia.', 1)
+  assert.ok(spoken[0].text.length <= 42)
+  spoken[0].onend()
+  const currentChunk = spoken[1].text
+  assert.ok(currentChunk.length <= 42)
+  reader.pause()
+  reader.resume()
+  assert.equal(spoken[2].text, currentChunk)
+  assert.notEqual(spoken[2].text, spoken[0].text)
+  reader.setRate(1.25)
+  assert.equal(spoken[3].text, currentChunk)
+  assert.equal(spoken[3].rate, 1.25)
+})

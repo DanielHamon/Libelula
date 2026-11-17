@@ -1,12 +1,14 @@
-const MAX_CHUNK_LENGTH = 220
+// Algunos motores de voz no emiten eventos `boundary`. Un tramo corto limita
+// lo que se repite al pausar antes de recibir el siguiente `end`.
+const MAX_CHUNK_LENGTH = 42
+const MIN_BREAK_LENGTH = 22
 
 function nextChunk(text, cursor) {
   const remaining = text.slice(cursor)
   if (remaining.length <= MAX_CHUNK_LENGTH) return remaining
   const candidate = remaining.slice(0, MAX_CHUNK_LENGTH)
-  const sentenceEnd = Math.max(candidate.lastIndexOf('. '), candidate.lastIndexOf('? '), candidate.lastIndexOf('! '))
   const space = candidate.lastIndexOf(' ')
-  const end = sentenceEnd >= 100 ? sentenceEnd + 2 : space >= 100 ? space + 1 : MAX_CHUNK_LENGTH
+  const end = space >= MIN_BREAK_LENGTH ? space + 1 : MAX_CHUNK_LENGTH
   return remaining.slice(0, end)
 }
 
