@@ -6,7 +6,21 @@ async function request(path, apiKey, options = {}) {
     headers: { 'xi-api-key': apiKey, ...options.headers },
     signal: AbortSignal.timeout(options.method === 'POST' ? 120_000 : 30_000),
   })
-  if (!response.ok) throw new Error(`ElevenLabs ${options.method || 'GET'} respondió HTTP ${response.status}`)
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    const detail = body?.detail && typeof body.detail === 'object' ? body.detail : body
+    const voiceId = path.match(/^\/v1\/(?:text-to-speech|voices)\/([^/?]+)/)?.[1]
+    const safe = value => {
+      if (typeof value !== 'string') return ''
+      return value.replaceAll(apiKey, '[clave oculta]')
+        .replaceAll(voiceId || '\u0000', '[voz oculta]')
+        .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, '[correo oculto]')
+        .slice(0, 300)
+    }
+    const code = safe(detail?.status)
+    const message = safe(detail?.message)
+    throw new Error(`ElevenLabs ${options.method || 'GET'} respondió HTTP ${response.status}${code ? ` (${code})` : ''}${message ? `: ${message}` : ''}`)
+  }
   return response
 }
 

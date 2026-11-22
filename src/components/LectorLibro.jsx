@@ -13,7 +13,6 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 const C = { primary: '#2563EB', primaryLight: '#DBEAFE' }
 const ANIM_MS = 1100
 const SHOW_VOICE_READER = false
-const PILOT_VOICE_BOOK_ID = 'roja_como_un_tomate'
 
 function getSavedSpread(libroId) {
   try { return parseInt(localStorage.getItem(`iabooks_spread_${libroId}`), 10) || 0 }
@@ -70,6 +69,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   const [loadedBookId, setLoadedBookId] = useState(null)
   const [pdfDoc, setPdfDoc] = useState(null)
   const [spread, setSpread] = useState(0)
+  const [autoPlayPage, setAutoPlayPage] = useState(null)
   const [flipState, setFlipState] = useState('idle')
   const [pageWidth, setPageWidth] = useState(null)
   const [pageHeight, setPageHeight] = useState(null)
@@ -125,8 +125,9 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
     setTimeout(() => { if (outerRef.current) outerRef.current.style.minHeight = '' }, delay)
   }
 
-  function goNext() {
+  function turnNext(autoPage = null) {
     if (flipState !== 'idle' || spread >= totalSpreads - 1) return
+    setAutoPlayPage(autoPage)
     freezeHeight()
     setSpread(s => s + 1)
     setFlipState('next')
@@ -134,8 +135,13 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
     animTimerRef.current = setTimeout(() => { setFlipState('idle'); thawHeight() }, ANIM_MS)
   }
 
+  function goNext() { turnNext() }
+
+  function autoNext(nextPage) { turnNext(nextPage) }
+
   function goPrev() {
     if (flipState !== 'idle' || spread <= 0) return
+    setAutoPlayPage(null)
     freezeHeight()
     setSpread(s => s - 1)
     setFlipState('prev')
@@ -148,7 +154,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
     const target = parseInt(jumpInput, 10)
     if (!isNaN(target) && target >= 1 && target <= numPages) {
       const targetSpread = doublePage ? Math.floor((target - 1) / 2) : target - 1
-      if (targetSpread !== spread) { freezeHeight(); setSpread(targetSpread); thawHeight(200) }
+      if (targetSpread !== spread) { setAutoPlayPage(null); freezeHeight(); setSpread(targetSpread); thawHeight(200) }
     }
     setJumpInput('')
   }
@@ -358,7 +364,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
         />
       )}
 
-      {libroId === PILOT_VOICE_BOOK_ID && pdfDoc && (
+      {libroId && pdfDoc && (
         <NarradorLibro
           key={`${libroId}-${spread}-${doublePage}`}
           libroId={libroId}
@@ -369,6 +375,10 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
           doublePage={doublePage}
           onPrev={goPrev}
           onNext={goNext}
+          onAutoNext={autoNext}
+          autoPlayPage={autoPlayPage}
+          autoPlayReady={flipState === 'idle'}
+          onAutoPlayConsumed={setAutoPlayPage}
           accent={accent}
         />
       )}
@@ -379,7 +389,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
           {Array.from({ length: Math.min(totalSpreads, 20) }).map((_, i) => (
             <button key={i}
               onClick={() => {
-                if (flipState === 'idle' && i !== spread) { freezeHeight(); setSpread(i); thawHeight(200) }
+                if (flipState === 'idle' && i !== spread) { setAutoPlayPage(null); freezeHeight(); setSpread(i); thawHeight(200) }
               }}
               style={{
                 width: spread === i ? 24 : 8, height: 8, borderRadius: 4, border: 'none',

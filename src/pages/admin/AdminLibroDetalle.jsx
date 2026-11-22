@@ -2554,6 +2554,9 @@ export default function AdminLibroDetalle() {
               <a href={`/libro/${libro.id}`} target="_blank" rel="noreferrer" style={{ ...btnOutline(C.textLight, 'sm'), textDecoration: 'none' }}>
                 Vista previa ↗
               </a>
+              <Link to={`/admin/libros/${libro.id}/narracion`} style={{ ...btnOutline(C.primary, 'sm'), textDecoration: 'none' }}>
+                Narración del libro
+              </Link>
               {!editando && (
                 <button onClick={() => setEditando(true)} style={btnOutline(C.primary, 'sm')}>Editar metadatos</button>
               )}

@@ -1,12 +1,14 @@
 # Piloto local del lector de voz — Roja como un tomate
 
-**Alcance:** rama `feature/lector-voz-piloto`, Supabase local preservado. El fixture inicial ocupa una página del registro `roja_como_un_tomate`; la prueba de ElevenLabs está preparada para cuatro páginas de una versión nueva. El registro duplicado `roja` no se modifica. Ningún audio se generó con ElevenLabs.
+> Este documento conserva la secuencia histórica del piloto. La implementación administrable actual, las migraciones y las pruebas están en [Narraciones administrables](NARRACIONES_ADMIN_PLAN.md). El estado de habilitación empieza deshabilitado y la versión de cuatro páginas se conserva sin borrar sus MP3.
+
+**Alcance:** rama `feature/lector-voz-piloto`, Supabase local preservado. La versión 2 con ElevenLabs está publicada para las páginas PDF 8–11 del registro `roja_como_un_tomate`. La versión 1 con el tono de prueba está archivada; el registro duplicado `roja` no se modifica.
 
 ## Qué hace el código
 
 - `supabase/voice_reader_pilot.sql` crea `narraciones_libro`, `narraciones_pagina` y el bucket privado `audiobooks`. Las tablas y los objetos solo pueden leerse cuando la narración está publicada, la página está lista y `puede_acceder_libro` concede acceso. El navegador no recibe permisos de escritura.
 - `scripts/voice-pilot-local.mjs` lee el PDF de la réplica, busca la primera página con texto suficiente y publica **un tono WAV técnico** de 1,5 segundos. El hash del texto es de esa página. El script exige la réplica local y no sobrescribe una versión existente.
-- `src/components/NarradorLibro.jsx` aparece únicamente para `roja_como_un_tomate` si encuentra una narración publicada. Firma la URL al reproducir, conserva la firma durante su vigencia, y ofrece reproducir, pausar, continuar, reiniciar, velocidad y navegación manual. En páginas sin audio piloto usa la voz disponible en el dispositivo como respaldo.
+- `src/components/NarradorLibro.jsx` aparece únicamente para `roja_como_un_tomate` si encuentra una narración publicada. Firma la URL al reproducir, conserva la firma durante su vigencia, y ofrece reproducir, pausar, continuar, reiniciar, velocidad y navegación. Al terminar una página, espera un segundo y continúa con la siguiente, dentro del mismo pliego o en el siguiente. En páginas sin audio piloto usa la voz disponible en el dispositivo como respaldo.
 - El respaldo del navegador divide el texto en tramos de hasta 42 caracteres. Pausar cancela la locución y continuar retoma desde la última palabra informada por el navegador; si este no informa límites de palabras, repite como máximo el tramo actual. La velocidad reinicia ese tramo con el valor elegido.
 - El panel toma el color de acento del libro y adapta los controles a pantallas pequeñas.
 - `scripts/verify-voice-pilot-local.mjs` comprueba lectura y descarga con una activación ficticia y denegación para un usuario sin acceso. Solo se conecta a `127.0.0.1:54431`.
@@ -31,13 +33,13 @@ Después del ajuste visual y de controles se verificó de nuevo en navegador loc
 
 La voz del navegador de prueba no emitió eventos `boundary`. Con los tramos de 42 caracteres, al pausar tras varios tramos y continuar se repitió solo el tramo en curso; al cambiar velocidad tampoco se volvió al inicio de la página. La reanudación exacta dentro del tramo depende de que el motor de voz informe una posición. Los archivos de audio sí conservan la posición exacta mediante `HTMLAudioElement.currentTime`.
 
-## Para continuar con voz real
+## Estado de la voz real
 
-Confirmar la versión final del PDF y registrar `voice_id`, modelo y ajustes exactos de ElevenLabs. Generar una nueva versión de narración con MP3 de las páginas elegidas, revisar el sonido y publicarla solo después de aprobarla. El tono WAV de la versión 1 permanece como fixture local y no debe copiarse a otro entorno.
+El usuario generó, escuchó y publicó los cuatro MP3 en Supabase local el 18-11-2026; también comprobó manualmente que los controles del reproductor funcionan. El verificador local confirmó el acceso a los cuatro MP3 para una cuenta activada y la denegación para una cuenta sin acceso. El tono WAV de la versión 1 permanece como fixture archivado y no debe copiarse a otro entorno.
 
-Este piloto aún usa navegación manual del audio; el avance automático y la precarga de la próxima página pertenecen a la integración posterior.
+El avance automático de un segundo está implementado en el frontend, pendiente de comprobación auditiva en navegador. La precarga de la próxima página pertenece a la integración posterior.
 
-## Prueba con ElevenLabs Free (preparada, aún sin generar)
+## Prueba con ElevenLabs Free
 
 El tramo predeterminado es **PDF 8–11**, cuatro páginas consecutivas con texto extraíble: **707 caracteres** según el PDF local revisado el 17-11-2026. PDF 6 no se eligió porque aparece como imagen sin texto extraíble. El texto exacto que se enviaría se guarda solo en `.reports/voice-pilot/texto-para-narrar.json`, excluido de Git. Revisa ese archivo antes de generar.
 
@@ -54,4 +56,4 @@ ElevenLabs publica 10.000 créditos mensuales para Free y un crédito por carác
 3. Ejecuta `node scripts/elevenlabs-pilot.mjs plan` para revisar las páginas. Después, `node scripts/elevenlabs-pilot.mjs generate`. La generación guarda cada MP3 en `.reports/voice-pilot/audio-cache/`, lo valida, lo sube al bucket privado y crea una **versión 2 en borrador**. Repetir el comando omite páginas listas y reutiliza el archivo local si falló la subida, para no gastar créditos otra vez.
 4. Escucha los cuatro MP3. Cuando estén aprobados, ejecuta `node scripts/elevenlabs-pilot.mjs publish` para archivar el tono de prueba y mostrar la versión 2 en el lector local. La función SQL verifica que estén las cuatro páginas y sus objetos antes del cambio atómico.
 
-El generador acepta `--pages` con tres o cuatro páginas PDF consecutivas, por ejemplo `--pages 9,10,11`, y exige usar la misma selección al generar y publicar. No se hicieron llamadas a ElevenLabs ni se consumieron créditos durante la preparación de este código.
+El generador acepta `--pages` con tres o cuatro páginas PDF consecutivas, por ejemplo `--pages 9,10,11`, y exige usar la misma selección al generar y publicar. La versión 2 ya está publicada en la réplica local: no vuelvas a ejecutar `generate` o `publish` para esta versión.

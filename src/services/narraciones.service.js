@@ -1,9 +1,14 @@
 import { supabase } from '../lib/supabase'
 
 const AUDIO_BUCKET = 'audiobooks'
-const AUDIO_URL_TTL_SECONDS = 300
+const AUDIO_URL_TTL_SECONDS = 120
 
 export async function getNarracionPublicada(libroId) {
+  const { data: libro, error: libroError } = await supabase
+    .from('libros').select('narracion_habilitada').eq('id', libroId).maybeSingle()
+  if (libroError) throw libroError
+  if (!libro?.narracion_habilitada) return null
+
   const { data: narracion, error: narracionError } = await supabase
     .from('narraciones_libro')
     .select('id, libro_id, version')
@@ -12,6 +17,9 @@ export async function getNarracionPublicada(libroId) {
     .maybeSingle()
   if (narracionError) throw narracionError
   if (!narracion) return null
+  const { data: valida, error: validaError } = await supabase.rpc('narracion_version_valida', { p_id: narracion.id })
+  if (validaError) throw validaError
+  if (!valida) return null
 
   const { data: paginas, error: paginasError } = await supabase
     .from('narraciones_pagina')

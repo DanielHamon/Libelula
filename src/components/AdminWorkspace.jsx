@@ -5,6 +5,7 @@ import AdminEscuelas from '../pages/admin/AdminEscuelas'
 import AdminEscuelaDetalle from '../pages/admin/AdminEscuelaDetalle'
 import AdminLibros from '../pages/admin/AdminLibros'
 import AdminLibroDetalle from '../pages/admin/AdminLibroDetalle'
+import AdminNarraciones from '../pages/admin/AdminNarraciones'
 import AdminTokens from '../pages/admin/AdminTokens'
 import AdminUsuarios from '../pages/admin/AdminUsuarios'
 import AdminAprobaciones from '../pages/admin/AdminAprobaciones'
@@ -28,6 +29,7 @@ const SECTION_ROUTES = {
     <>
       <Route path="libros" element={<AdminLibros />} />
       <Route path="libros/:id" element={<AdminLibroDetalle />} />
+      <Route path="libros/:id/narracion" element={<AdminNarraciones />} />
     </>
   ),
   tokens: <Route path="tokens" element={<AdminTokens />} />,

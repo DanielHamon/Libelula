@@ -28,13 +28,18 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   })
   const { data: books, error: bookError } = await admin.from('narraciones_libro')
-    .select('id, estado').eq('libro_id', BOOK_ID).eq('estado', 'published')
+    .select('id, version, estado, proveedor').eq('libro_id', BOOK_ID).order('version')
   assert.ifError(bookError)
-  assert.equal(books.length, 1)
+  assert.deepEqual(books.map(book => [book.version, book.estado, book.proveedor]), [
+    [1, 'archived', 'fixture_local'],
+    [2, 'published', 'elevenlabs'],
+  ])
   const { data: pages, error: pageError } = await admin.from('narraciones_pagina')
-    .select('pagina_pdf, storage_path').eq('narracion_id', books[0].id).eq('estado', 'ready')
+    .select('pagina_pdf, storage_path, tamano_bytes, mime_type')
+    .eq('narracion_id', books[1].id).eq('estado', 'ready').order('pagina_pdf')
   assert.ifError(pageError)
-  assert.equal(pages.length, 1)
+  assert.deepEqual(pages.map(page => page.pagina_pdf), [8, 9, 10, 11])
+  assert.ok(pages.every(page => page.mime_type === 'audio/mpeg' && page.tamano_bytes > 2048))
   const { data: buckets, error: bucketError } = await admin.storage.listBuckets()
   assert.ifError(bucketError)
   assert.equal(buckets.find(bucket => bucket.id === 'audiobooks')?.public, false)
@@ -44,22 +49,36 @@ async function main() {
   assert.ifError(activationError)
   assert.ok(activations.length > 0, 'Falta un usuario ficticio con activación local')
 
+  const { data: libro, error: libroError } = await admin.from('libros')
+    .select('narracion_habilitada').eq('id', BOOK_ID).single()
+  assert.ifError(libroError)
+  const { data: versionValida, error: versionError } = await admin.rpc('narracion_version_valida', { p_id: books[1].id })
+  assert.ifError(versionError)
+
   let authorized = null
   for (const activation of activations) {
     const candidate = clientFor(credentials, activation.usuario_id)
-    const { data, error } = await candidate.from('narraciones_pagina')
-      .select('pagina_pdf').eq('libro_id', BOOK_ID)
-    if (!error && data?.length === 1) { authorized = candidate; break }
+    const { data, error } = await candidate.rpc('puede_acceder_libro', { p_libro_id: BOOK_ID })
+    if (!error && data) { authorized = candidate; break }
   }
-  assert.ok(authorized, 'No se encontró una activación local que pueda leer el audio')
+  assert.ok(authorized, 'No se encontró una activación local con acceso al libro')
 
-  const { data: signed, error: signError } = await authorized.storage.from('audiobooks')
-    .createSignedUrl(pages[0].storage_path, 60)
-  assert.ifError(signError)
-  assert.ok(signed?.signedUrl)
-  const response = await fetch(signed.signedUrl)
-  assert.equal(response.status, 200)
-  assert.equal((await response.arrayBuffer()).byteLength, 48044)
+  for (const page of pages) {
+    const { data: file, error: fileError } = await admin.storage.from('audiobooks').download(page.storage_path)
+    assert.ifError(fileError)
+    assert.equal(file.size, Number(page.tamano_bytes))
+  }
+  const { data: visibleRows, error: visibleError } = await authorized.from('narraciones_pagina')
+    .select('pagina_pdf').eq('libro_id', BOOK_ID)
+  assert.ifError(visibleError)
+  if (libro.narracion_habilitada && versionValida) {
+    assert.deepEqual(visibleRows.map(page => page.pagina_pdf), [8, 9, 10, 11])
+  } else {
+    assert.equal(visibleRows.length, 0)
+    const { error: blockedSign } = await authorized.storage.from('audiobooks')
+      .createSignedUrl(pages[0].storage_path, 60)
+    assert.ok(blockedSign, 'Un libro deshabilitado o incompleto permitió firmar audio')
+  }
 
   const denied = clientFor(credentials, randomUUID())
   const { data: deniedRows, error: deniedQueryError } = await denied.from('narraciones_pagina')
@@ -70,7 +89,7 @@ async function main() {
     .createSignedUrl(pages[0].storage_path, 60)
   assert.ok(deniedSignError, 'El usuario sin acceso pudo firmar el audio')
 
-  console.log(`Piloto local verificado: ${BOOK_ID}; 1 página, bucket privado, firma y descarga autorizadas, lectura y firma denegadas sin acceso`)
+  console.log(`Piloto local verificado: ${BOOK_ID}; versión 2, cuatro MP3 privados preservados; acceso estudiantil ${libro.narracion_habilitada && versionValida ? 'habilitado' : 'denegado por estado o integridad'}`)
 }
 
 main().catch(error => { console.error(`Verificación local falló: ${error.message}`); process.exitCode = 1 })

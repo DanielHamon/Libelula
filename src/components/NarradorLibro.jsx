@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { firmarNarracionPagina, getNarracionPublicada } from '../services/narraciones.service'
-import { createSpeechFallback } from '../lib/speechFallback'
 import './NarradorLibro.css'
 
-async function textoPagina(pdfDoc, pagina) {
-  const page = await pdfDoc.getPage(pagina)
-  const content = await page.getTextContent()
-  return content.items.map(item => item.str || '').join(' ').replace(/\s+/g, ' ').trim()
-}
-
-export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, onPrev, onNext, accent }) {
+export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, onPrev, onNext, onAutoNext, autoPlayPage, autoPlayReady, onAutoPlayConsumed, accent }) {
   const [narracion, setNarracion] = useState(null)
   const [estado, setEstado] = useState('cargando')
   const [pagina, setPagina] = useState(leftPageNum)
@@ -17,49 +10,78 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
     try { return Number(sessionStorage.getItem('iabooks_narracion_velocidad')) || 1 }
     catch { return 1 }
   })
-  const [origen, setOrigen] = useState(null)
   const audioRef = useRef(null)
-  const speechRef = useRef(null)
+  const narracionIdRef = useRef(null)
   const generationRef = useRef(0)
   const urlCacheRef = useRef(new Map())
+  const advanceTimerRef = useRef(null)
+  const iniciarRef = useRef(null)
+  const onAutoNextRef = useRef(null)
+  const lastVisiblePage = doublePage ? Math.min(rightPageNum, numPages) : leftPageNum
 
   const detener = useCallback(() => {
     generationRef.current += 1
+    clearTimeout(advanceTimerRef.current)
+    advanceTimerRef.current = null
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.src = ''
       audioRef.current = null
     }
-    speechRef.current?.stop()
-    speechRef.current = null
     setEstado('parado')
-    setOrigen(null)
   }, [])
 
   useEffect(() => {
     let active = true
-    getNarracionPublicada(libroId)
-      .then(data => {
-        if (!active) return
+    let latestRequest = 0
+    const urlCache = urlCacheRef.current
+    async function refresh() {
+      const request = ++latestRequest
+      try {
+        const data = await getNarracionPublicada(libroId)
+        if (!active || request !== latestRequest) return
+        if (narracionIdRef.current !== (data?.id ?? null)) {
+          detener()
+          urlCache.clear()
+          narracionIdRef.current = data?.id ?? null
+          setEstado(data ? 'parado' : 'sin_narracion')
+        }
         setNarracion(data)
-        setEstado(data ? 'parado' : 'sin_narracion')
-      })
-      .catch(() => { if (active) setEstado('error') })
-    return () => { active = false; detener() }
+      } catch { if (active && request === latestRequest) setEstado('error') }
+    }
+    void refresh()
+    const timer = setInterval(() => { void refresh() }, 3000)
+    return () => { active = false; clearInterval(timer); detener(); urlCache.clear() }
   }, [libroId, detener])
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = velocidad
-    speechRef.current?.setRate(velocidad)
     try { sessionStorage.setItem('iabooks_narracion_velocidad', velocidad) } catch { /* almacenamiento opcional */ }
   }, [velocidad])
 
-  async function iniciar() {
+  function finalizar(targetPage, request) {
+    if (request !== generationRef.current) return
+    if (targetPage >= numPages) { setEstado('parado'); return }
+    setEstado('esperando')
+    advanceTimerRef.current = setTimeout(() => {
+      advanceTimerRef.current = null
+      if (request !== generationRef.current) return
+      const nextPage = targetPage + 1
+      if (nextPage <= lastVisiblePage) {
+        setPagina(nextPage)
+        void iniciarRef.current(nextPage)
+      } else {
+        onAutoNextRef.current(nextPage)
+      }
+    }, 1000)
+  }
+
+  async function iniciar(targetPage = pagina) {
     if (!narracion || !pdfDoc) return
     detener()
     const request = generationRef.current
     setEstado('cargando')
-    const audioPage = narracion.paginas.get(pagina)
+    const audioPage = narracion.paginas.get(targetPage)
     try {
       if (audioPage) {
         const cached = urlCacheRef.current.get(audioPage.storage_path)
@@ -67,62 +89,61 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
           ? cached.url
           : await firmarNarracionPagina(audioPage)
         if (!cached || cached.url !== url) {
-          urlCacheRef.current.set(audioPage.storage_path, { url, expiresAt: Date.now() + 270_000 })
+          urlCacheRef.current.set(audioPage.storage_path, { url, expiresAt: Date.now() + 90_000 })
         }
         if (request !== generationRef.current) return
         const audio = new Audio(url)
         audio.playbackRate = velocidad
-        audio.onended = () => { if (request === generationRef.current) setEstado('parado') }
+        audio.onended = () => finalizar(targetPage, request)
         audio.onerror = () => { if (request === generationRef.current) setEstado('error') }
         audioRef.current = audio
-        setOrigen('grabada')
         await audio.play()
       } else {
-        if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
-          setEstado('sin_audio')
-          return
-        }
-        const texto = await textoPagina(pdfDoc, pagina)
-        if (request !== generationRef.current) return
-        if (!texto) { setEstado('sin_audio'); return }
-        speechRef.current = createSpeechFallback({
-          synthesis: window.speechSynthesis,
-          Utterance: window.SpeechSynthesisUtterance,
-          onEnd: () => { if (request === generationRef.current) setEstado('parado') },
-          onError: () => { if (request === generationRef.current) setEstado('error') },
-        })
-        setOrigen('dispositivo')
-        speechRef.current.start(texto, velocidad)
+        setEstado('sin_audio')
+        finalizar(targetPage, request)
+        return
       }
       if (request === generationRef.current) setEstado('leyendo')
     } catch {
       if (request === generationRef.current) setEstado('error')
     }
   }
+  useEffect(() => {
+    iniciarRef.current = iniciar
+    onAutoNextRef.current = onAutoNext
+  })
+
+  useEffect(() => {
+    if (!narracion || !pdfDoc || !autoPlayReady || autoPlayPage !== leftPageNum) return undefined
+    const timer = setTimeout(() => {
+      onAutoPlayConsumed(null)
+      void iniciarRef.current(autoPlayPage)
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [narracion, pdfDoc, autoPlayPage, autoPlayReady, leftPageNum, onAutoPlayConsumed])
 
   function pausar() {
-    if (origen === 'grabada') audioRef.current?.pause()
-    else speechRef.current?.pause()
+    if (advanceTimerRef.current) { detener(); return }
+    audioRef.current?.pause()
     setEstado('pausado')
   }
 
   async function continuar() {
     try {
-      if (origen === 'grabada') await audioRef.current?.play()
-      else speechRef.current?.resume()
+      await audioRef.current?.play()
       setEstado('leyendo')
     } catch { setEstado('error') }
   }
 
-  if (estado === 'sin_narracion') return null
+  if (!narracion) return null
 
-  const lastVisiblePage = doublePage ? Math.min(rightPageNum, numPages) : leftPageNum
   const statusText = {
     cargando: 'Preparando narración…',
     parado: `Página ${pagina} lista para escuchar`,
+    esperando: 'Pasando a la siguiente página en 1 segundo…',
     leyendo: `Leyendo página ${pagina}`,
     pausado: `Pausado en página ${pagina}`,
-    sin_audio: 'Esta página no tiene audio ni texto extraíble',
+    sin_audio: 'Esta página no requiere narración',
     error: 'No se pudo cargar la narración',
   }[estado]
   const hasRecordedAudio = Boolean(narracion?.paginas.has(pagina))
@@ -135,7 +156,7 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
           <span className="voice-reader__eyebrow">ACOMPAÑA TU LECTURA</span>
           <h2>Lector de voz</h2>
         </div>
-        <span className="voice-reader__source">{hasRecordedAudio ? 'Audio piloto' : 'Voz del dispositivo'}</span>
+        <span className="voice-reader__source">{hasRecordedAudio ? 'Audio grabado' : 'Sin audio en esta página'}</span>
       </div>
 
       <p className="voice-reader__status" role="status">
@@ -156,12 +177,12 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
           </label>
         )}
         <button className="voice-reader__play" type="button"
-          onClick={estado === 'leyendo' ? pausar : estado === 'pausado' ? continuar : iniciar}
+          onClick={estado === 'leyendo' ? pausar : estado === 'esperando' ? detener : estado === 'pausado' ? continuar : () => iniciar()}
           disabled={!narracion || estado === 'cargando'}>
-          <span aria-hidden="true">{estado === 'leyendo' ? '⏸' : '▶'}</span>
-          <span>{estado === 'leyendo' ? 'Pausar' : estado === 'pausado' ? 'Continuar' : 'Reproducir'}</span>
+          <span aria-hidden="true">{estado === 'leyendo' ? '⏸' : estado === 'esperando' ? '■' : '▶'}</span>
+          <span>{estado === 'leyendo' ? 'Pausar' : estado === 'esperando' ? 'Detener' : estado === 'pausado' ? 'Continuar' : 'Reproducir'}</span>
         </button>
-        <button className="voice-reader__restart" type="button" onClick={iniciar}
+        <button className="voice-reader__restart" type="button" onClick={() => iniciar()}
           disabled={!narracion || estado === 'cargando'} aria-label="Reiniciar lectura" title="Reiniciar lectura">
           <span aria-hidden="true">↺</span>
         </button>
@@ -176,7 +197,7 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
           </select>
         </label>
       </div>
-      {!hasRecordedAudio && <p className="voice-reader__note">Esta página usa la voz de tu navegador mientras preparamos su narración.</p>}
+      {!hasRecordedAudio && <p className="voice-reader__note">La lectura continuará en la siguiente página narrada.</p>}
     </section>
   )
 }

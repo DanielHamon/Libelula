@@ -28,6 +28,22 @@ const LABELS = {
   crear_tokens_libro: 'Generar tokens de libro',
   crear_tokens_docente: 'Generar tokens docentes',
   revocar_token: 'Revocar token',
+  cambiar_narracion_libro: 'Cambiar narración de libro',
+}
+
+function datosAccion(item) {
+  if (item.tipo !== 'cambiar_narracion_libro') {
+    return <code style={{ fontSize: 11, overflowWrap: 'anywhere' }}>{JSON.stringify(item.payload)}</code>
+  }
+  return <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+    <strong>{item.payload?.libro_titulo || item.payload?.libro_id}</strong><br />
+    Actual: {item.payload?.estado_anterior ? 'habilitada' : 'deshabilitada'}<br />
+    Solicitado: {item.payload?.habilitar ? 'habilitada' : 'deshabilitada'}<br />
+    Versión publicada: {item.payload?.version_publicada ? `v${item.payload.version_publicada}` : 'ninguna'}<br />
+    {item.payload?.version_publicada && <>
+      MP3 listos: {item.payload.audios_listos} / {item.payload.pdf_total_paginas ?? '—'} · Sin narración: {item.payload.paginas_omitidas}
+    </>}
+  </div>
 }
 
 export default function AdminAprobaciones() {
@@ -129,7 +145,7 @@ export default function AdminAprobaciones() {
                   <td style={{ ...S.td, fontWeight: 700 }}>{LABELS[item.tipo] || item.tipo}</td>
                   <td style={{ ...S.td, fontSize: 13 }}>{item.solicitante?.email || '—'}</td>
                   <td style={{ ...S.td, maxWidth: 300 }}>
-                    <code style={{ fontSize: 11, overflowWrap: 'anywhere' }}>{JSON.stringify(item.payload)}</code>
+                    {datosAccion(item)}
                   </td>
                   <td style={{ ...S.td, whiteSpace: 'nowrap', fontSize: 12 }}>
                     {new Date(item.solicitado_en).toLocaleString('es-CO')}

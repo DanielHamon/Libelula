@@ -31,3 +31,25 @@ test('consulta cuota y voz; solicita MP3 con el modelo y texto previstos', async
     globalThis.fetch = originalFetch
   }
 })
+
+test('muestra el detalle del error sin revelar clave ni ID de voz', async () => {
+  const originalFetch = globalThis.fetch
+  globalThis.fetch = async () => Response.json({
+    detail: {
+      status: 'voice_not_available',
+      message: 'La clave clave-de-prueba no puede usar voz1234567890; contacto@example.com',
+    },
+  }, { status: 402 })
+  try {
+    await assert.rejects(
+      createSpeech({ text: 'Texto de prueba', voiceId: 'voz1234567890', settings: {},
+        apiKey: 'clave-de-prueba', model: 'eleven_multilingual_v2', format: 'mp3_44100_128' }),
+      error => error.message.includes('HTTP 402 (voice_not_available)')
+        && !error.message.includes('clave-de-prueba')
+        && !error.message.includes('voz1234567890')
+        && !error.message.includes('contacto@example.com'),
+    )
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
