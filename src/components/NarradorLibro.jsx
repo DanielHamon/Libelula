@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { firmarNarracionPagina, getNarracionPublicada } from '../services/narraciones.service'
 import './NarradorLibro.css'
 
+function etiquetaPaginaLibro(paginaPdf, numPages) {
+  if (numPages > 1 && paginaPdf === 1) return 'Portada'
+  return String(paginaPdf - (numPages > 1 ? 1 : 0))
+}
+
 export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, onPrev, onNext, onAutoNext, autoPlayPage, autoPlayReady, onAutoPlayConsumed, onAvailabilityChange, accent }) {
   const [narracion, setNarracion] = useState(null)
   const [estado, setEstado] = useState('cargando')
@@ -142,12 +147,14 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
 
   if (!narracion) return null
 
+  const portada = numPages > 1 && pagina === 1
+  const paginaMostrada = etiquetaPaginaLibro(pagina, numPages)
   const statusText = {
     cargando: 'Preparando narración…',
-    parado: `Página ${pagina} lista para escuchar`,
+    parado: `${portada ? 'Portada' : `Página ${paginaMostrada}`} lista para escuchar`,
     esperando: 'Pasando a la siguiente página en 1 segundo…',
-    leyendo: `Leyendo página ${pagina}`,
-    pausado: `Pausado en página ${pagina}`,
+    leyendo: `Leyendo ${portada ? 'la portada' : `página ${paginaMostrada}`}`,
+    pausado: `Pausado en ${portada ? 'la portada' : `página ${paginaMostrada}`}`,
     sin_audio: 'Esta página no requiere narración',
     error: 'No se pudo cargar la narración',
   }[estado]
@@ -174,9 +181,9 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
         </button>
         {doublePage && lastVisiblePage > leftPageNum && (
           <label className="voice-reader__field">Página
-            <select aria-label="Página para narrar" value={pagina} onChange={event => { detener(); setPagina(Number(event.target.value)) }}>
-              <option value={leftPageNum}>{leftPageNum}</option>
-              <option value={rightPageNum}>{rightPageNum}</option>
+            <select aria-label="Página impresa para narrar" value={pagina} onChange={event => { detener(); setPagina(Number(event.target.value)) }}>
+              <option value={leftPageNum}>{etiquetaPaginaLibro(leftPageNum, numPages)}</option>
+              <option value={rightPageNum}>{etiquetaPaginaLibro(rightPageNum, numPages)}</option>
             </select>
           </label>
         )}

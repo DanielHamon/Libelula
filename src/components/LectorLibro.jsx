@@ -220,8 +220,8 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
         <span style={{ fontSize: 12, fontWeight: 700, color: '#6B6050', whiteSpace: 'nowrap' }}>
           {numPages
             ? doublePage
-              ? `Págs. ${leftPageNum}–${Math.min(rightPageNum, numPages)} / ${numPages}`
-              : `Pág. ${leftPageNum} / ${numPages}`
+              ? `PDF ${leftPageNum}–${Math.min(rightPageNum, numPages)} / ${numPages}`
+              : `PDF ${leftPageNum} / ${numPages}`
             : 'Cargando...'}
         </span>
         {numPages && (
