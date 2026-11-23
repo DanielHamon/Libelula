@@ -4,6 +4,7 @@ import { pdfjs } from 'react-pdf'
 import AdminLayout from '../../components/AdminLayout'
 import { C, S, btn, btnOutline, badge } from '../../lib/adminStyles'
 import { supabase } from '../../lib/supabase'
+import './AdminNarraciones.css'
 import {
   listarLibrosNarracion, obtenerEstadoNarracion, obtenerPaginasNarracion,
   crearBorradorNarracion, descartarBorradorNarracion,
@@ -43,6 +44,10 @@ export default function AdminNarraciones() {
   const borrador = versiones.find(v => v.estado === 'draft')
   const publicada = versiones.find(v => v.estado === 'published')
   const visible = borrador || publicada
+  const audiosListos = paginas.filter(p => p.estado === 'ready').length
+  const paginasOmitidas = paginas.filter(p => p.estado === 'skipped').length
+  const totalVersion = visible?.pdf_total_pages || totalPdf || 0
+  const paginasPreparadas = audiosListos + paginasOmitidas
   const porPagina = useMemo(() => new Map(paginas.map(p => [p.pagina_pdf, p])), [paginas])
   const paginasVisibles = Array.from({ length: Math.min(PAGE_SIZE, Math.max(0, (totalPdf || 0) - paginaLista * PAGE_SIZE)) }, (_, i) => paginaLista * PAGE_SIZE + i + 1)
 
@@ -118,41 +123,99 @@ export default function AdminNarraciones() {
         {error && <p role="alert" style={{ color: C.danger, background: C.dangerLight, padding: 12, borderRadius: 8 }}>{error}</p>}
         {mensaje && <p role="status" style={{ color: C.success, background: C.successLight, padding: 12, borderRadius: 8 }}>{mensaje}</p>}
         {libro && <>
-          <section style={{ ...S.card, padding: 22, marginBottom: 20 }}>
-            <h2 style={{ fontSize: 18, marginTop: 0 }}>{libro.titulo}</h2>
-            <p style={{ overflowWrap: 'anywhere' }}>PDF: <code>{libro.pdf_url || 'No asociado'}</code> · {totalPdf ?? '—'} páginas</p>
-            <p>Reproductor: <strong>{libro.narracion_habilitada ? 'Habilitado' : 'Deshabilitado'}</strong></p>
-            <p>Versión publicada: {publicada ? `v${publicada.version}` : 'Ninguna'} · Borrador: {borrador ? `v${borrador.version}` : 'Ninguno'}</p>
-            {pendientes.map(item => <p key={item.id} style={{ color: C.textLight }}>
-              Solicitud pendiente: {item.payload?.habilitar ? 'habilitar' : 'deshabilitar'} · {new Date(item.solicitado_en).toLocaleString('es-CO')}
-            </p>)}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
-              {!borrador && <button type="button" disabled={busy || !totalPdf} style={btn(C.primary, 'sm')}
-                onClick={() => ejecutar('borrador', async () => { await crearBorradorNarracion(id, totalPdf); return 'Borrador creado.' })}>
-                Crear borrador
-              </button>}
-              {borrador && <button type="button" disabled={busy} style={btn(C.primary, 'sm')}
-                onClick={() => ejecutar('validar', async () => await validarVersionNarracion(borrador.id)
-                  ? 'Versión válida para publicar.' : 'La versión está incompleta: cada página debe tener MP3 o estar marcada sin narración.')}>Validar borrador</button>}
-              {borrador && <button type="button" disabled={busy} style={btnOutline(C.primary, 'sm')}
-                onClick={() => ejecutar('publicar', async () => { await publicarVersionNarracion(borrador.id); return 'Versión publicada. El estado del reproductor no cambió.' })}>Publicar versión</button>}
-              {borrador && <button type="button" disabled={busy} style={btnOutline(C.danger, 'sm')}
-                onClick={() => {
-                  if (!window.confirm('¿Descartar el borrador? La versión publicada permanecerá intacta.')) return
-                  void ejecutar('descartar', async () => { await descartarBorradorNarracion(borrador.id); return 'Borrador descartado.' })
-                }}>Descartar borrador</button>}
-              <button type="button" disabled={busy} style={btnOutline(C.textLight, 'sm')}
-                onClick={() => ejecutar('limpiar', async () => {
-                  const total = await limpiarCargasNarracion(id)
-                  return `${total} carga${total === 1 ? '' : 's'} interrumpida${total === 1 ? '' : 's'} limpiada${total === 1 ? '' : 's'}.`
-                })}>Limpiar cargas interrumpidas</button>
-              <button type="button" disabled={busy || pendientes.length > 0} style={btnOutline(C.primary, 'sm')}
-                onClick={() => ejecutar('solicitud', async () => {
-                  await solicitarEstadoNarracion(id, !libro.narracion_habilitada)
-                  return 'Solicitud enviada al superadministrador. El estado actual no cambió.'
-                })}>
-                Solicitar {libro.narracion_habilitada ? 'deshabilitación' : 'habilitación'}
-              </button>
+          <section className="admin-narration-summary" aria-label={`Narración de ${libro.titulo}`}>
+            <div className="admin-narration-summary__header">
+              <div className="admin-narration-summary__identity">
+                <span className="admin-narration-summary__eyebrow">LIBRO SELECCIONADO</span>
+                <h2>{libro.titulo}</h2>
+                <p className="admin-narration-summary__pdf">
+                  <span aria-hidden="true">📄</span>
+                  <span>PDF: <code>{libro.pdf_url || 'No asociado'}</code></span>
+                </p>
+              </div>
+              <div className={`admin-narration-summary__state ${libro.narracion_habilitada ? 'is-enabled' : 'is-disabled'}`}>
+                <span className="admin-narration-summary__state-dot" aria-hidden="true" />
+                <span>Reproductor {libro.narracion_habilitada ? 'habilitado' : 'deshabilitado'}</span>
+              </div>
+            </div>
+
+            <div className="admin-narration-summary__stats" aria-label="Estado de la narración">
+              <div className="admin-narration-summary__stat">
+                <span>Páginas del PDF</span>
+                <strong>{totalPdf ?? '—'}</strong>
+              </div>
+              <div className="admin-narration-summary__stat">
+                <span>Versión publicada</span>
+                <strong>{publicada ? `v${publicada.version}` : 'Ninguna'}</strong>
+              </div>
+              <div className="admin-narration-summary__stat">
+                <span>Borrador</span>
+                <strong>{borrador ? `v${borrador.version}` : 'Ninguno'}</strong>
+              </div>
+            </div>
+
+            {visible && totalVersion > 0 && <div className="admin-narration-summary__progress">
+              <div className="admin-narration-summary__progress-label">
+                <span>Cobertura de la {borrador ? 'versión en borrador' : 'versión publicada'}</span>
+                <strong>{paginasPreparadas} de {totalVersion} páginas</strong>
+              </div>
+              <div className="admin-narration-summary__progress-track" role="progressbar"
+                aria-label="Páginas preparadas" aria-valuenow={paginasPreparadas} aria-valuemin={0} aria-valuemax={totalVersion}>
+                <span style={{ width: `${Math.min(100, Math.round(paginasPreparadas / totalVersion * 100))}%` }} />
+              </div>
+              <p>{audiosListos} con MP3 · {paginasOmitidas} sin narración</p>
+            </div>}
+
+            {pendientes.map(item => <div key={item.id} className="admin-narration-summary__pending" role="status">
+              <span aria-hidden="true">⏳</span>
+              <span>Solicitud de {item.payload?.habilitar ? 'habilitación' : 'deshabilitación'} pendiente desde el {new Date(item.solicitado_en).toLocaleString('es-CO')}. El estado actual se mantiene hasta la decisión del superadmin.</span>
+            </div>)}
+
+            <div className="admin-narration-summary__actions">
+              <div className="admin-narration-summary__action-group">
+                <div className="admin-narration-summary__action-copy">
+                  <h3>Versión de audio</h3>
+                  <p>Prepara y publica los MP3 sin cambiar el estado del reproductor.</p>
+                </div>
+                <div className="admin-narration-summary__buttons">
+                  {!borrador && <button type="button" disabled={busy || !totalPdf} style={btn(C.primary, 'sm')}
+                    onClick={() => ejecutar('borrador', async () => { await crearBorradorNarracion(id, totalPdf); return 'Borrador creado.' })}>
+                    Crear borrador
+                  </button>}
+                  {borrador && <button type="button" disabled={busy} style={btn(C.primary, 'sm')}
+                    onClick={() => ejecutar('validar', async () => await validarVersionNarracion(borrador.id)
+                      ? 'Versión válida para publicar.' : 'La versión está incompleta: cada página debe tener MP3 o estar marcada sin narración.')}>Validar borrador</button>}
+                  {borrador && <button type="button" disabled={busy} style={btnOutline(C.primary, 'sm')}
+                    onClick={() => ejecutar('publicar', async () => { await publicarVersionNarracion(borrador.id); return 'Versión publicada. El estado del reproductor no cambió.' })}>Publicar versión</button>}
+                  {borrador && <button type="button" disabled={busy} style={btnOutline(C.danger, 'sm')}
+                    onClick={() => {
+                      if (!window.confirm('¿Descartar el borrador? La versión publicada permanecerá intacta.')) return
+                      void ejecutar('descartar', async () => { await descartarBorradorNarracion(borrador.id); return 'Borrador descartado.' })
+                    }}>Descartar borrador</button>}
+                </div>
+              </div>
+              <div className="admin-narration-summary__action-group">
+                <div className="admin-narration-summary__action-copy">
+                  <h3>Visibilidad para estudiantes</h3>
+                  <p>El superadmin debe aprobar cualquier cambio de habilitación.</p>
+                </div>
+                <div className="admin-narration-summary__buttons">
+                  <button type="button" disabled={busy || pendientes.length > 0} style={btnOutline(C.primary, 'sm')}
+                    onClick={() => ejecutar('solicitud', async () => {
+                      await solicitarEstadoNarracion(id, !libro.narracion_habilitada)
+                      return 'Solicitud enviada al superadministrador. El estado actual no cambió.'
+                    })}>
+                    Solicitar {libro.narracion_habilitada ? 'deshabilitación' : 'habilitación'}
+                  </button>
+                </div>
+              </div>
+              <div className="admin-narration-summary__maintenance">
+                <button type="button" disabled={busy} style={btnOutline(C.textLight, 'sm')}
+                  onClick={() => ejecutar('limpiar', async () => {
+                    const total = await limpiarCargasNarracion(id)
+                    return `${total} carga${total === 1 ? '' : 's'} interrumpida${total === 1 ? '' : 's'} limpiada${total === 1 ? '' : 's'}.`
+                  })}>Limpiar cargas interrumpidas</button>
+              </div>
             </div>
           </section>
 
