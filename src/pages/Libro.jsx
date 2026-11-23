@@ -9,6 +9,7 @@ import LectorLibroPrivado from '../components/LectorLibroPrivado'
 import { ActivityCard } from '../components/ActivityCard'
 import { useWindowWidth } from '../hooks/useWindowWidth'
 import { rememberRecentBook } from '../lib/recentBooks'
+import './Libro.css'
 
 const TABS = [
   { id: 'leer',        icon: '📖', label: 'Leer libro' },
@@ -38,6 +39,7 @@ export default function Libro() {
   const [errorCarga, setErrorCarga] = useState(null)
   const [tab, setTab] = useState(() => initialNav.current.tab || 'leer')
   const [seccionActiva, setSeccionActiva] = useState(() => Number(initialNav.current.seccion) || 0)
+  const [headerCompacto, setHeaderCompacto] = useState(false)
   const scrollRef = useRef(null)
   const actividadesScrollRef = useRef(null)
 
@@ -70,7 +72,12 @@ export default function Libro() {
 
   function cambiarTab(nextTab) {
     saveNavigation({ tab: nextTab })
+    setHeaderCompacto(false)
     setTab(nextTab)
+  }
+
+  function actualizarHeader(scrollTop) {
+    setHeaderCompacto(compacto => scrollTop > 48 || (compacto && scrollTop > 8))
   }
 
   function cambiarSeccion(index) {
@@ -243,33 +250,31 @@ export default function Libro() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', paddingTop: isMobile ? 56 : 0, boxSizing: 'border-box' }}>
 
         {/* ── Header ── */}
-        <div style={{
+        <header className={`book-hero${headerCompacto ? ' book-hero--compact' : ''}`} style={{
           background: `linear-gradient(135deg, ${headerStart} 0%, ${headerEnd} 100%)`,
-          color: 'white', padding: isMobile ? '12px 16px 10px' : '1.3rem 2rem',
-          textAlign: 'center', position: 'relative', flexShrink: 0,
         }}>
           <button
             onClick={() => navigate('/inicio')}
-            style={{ position: 'absolute', top: isMobile ? 8 : 14, left: isMobile ? 8 : 24, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff', borderRadius: 8, padding: isMobile ? '4px 8px' : '4px 12px', fontSize: isMobile ? 11 : 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Nunito' }}
+            className="book-hero__back"
           >
             ← Inicio
           </button>
-          <h1 style={{ fontFamily: "'Fredoka One', cursive", fontSize: isMobile ? 'clamp(1.05rem, 4.5vw, 1.5rem)' : 'clamp(1.5rem, 3vw, 2.2rem)', marginBottom: '0.2rem', letterSpacing: 1, marginTop: isMobile ? 18 : 0, padding: isMobile ? '0 48px' : 0, overflowWrap: 'anywhere' }}>
+          <h1 className="book-hero__title">
             {libro?.emoji ? `${libro.emoji} ${libro?.titulo}` : libro?.titulo}
           </h1>
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 10, marginTop: 6 }}>
-            <p style={{ fontSize: isMobile ? '0.75rem' : '0.85rem', opacity: 0.85, fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: isMobile ? 160 : 300 }}>
+          <div className="book-hero__meta">
+            <p className="book-hero__description">
               {libro?.descripcion || 'Actividades interactivas'}
             </p>
-            <span style={{ opacity: 0.5, fontSize: 10 }}>·</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-              <div style={{ background: 'rgba(255,255,255,0.25)', borderRadius: 6, height: 5, width: isMobile ? 60 : 100, overflow: 'hidden' }}>
+            <span className="book-hero__divider" aria-hidden="true">·</span>
+            <div className="book-hero__progress" aria-label={`Progreso: ${porcentaje}%`}>
+              <div className="book-hero__progress-track">
                 <div style={{ background: 'rgba(255,255,255,0.9)', height: '100%', borderRadius: 6, width: `${porcentaje}%`, transition: 'width 0.5s' }} />
               </div>
-              <span style={{ fontSize: 11, opacity: 0.8, whiteSpace: 'nowrap' }}>{porcentaje}%</span>
+              <span>{porcentaje}%</span>
             </div>
           </div>
-        </div>
+        </header>
 
         {errorProgreso && (
           <div role="alert" style={{ padding: '10px 16px', background: '#FEE2E2', color: '#991B1B', fontWeight: 700, textAlign: 'center' }}>
@@ -294,7 +299,7 @@ export default function Libro() {
 
         {/* ── Leer ── */}
         {tab === 'leer' && (
-          <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto' }}>
+          <div ref={scrollRef} onScroll={event => actualizarHeader(event.currentTarget.scrollTop)} style={{ flex: 1, overflowY: 'auto' }}>
             {libro?.pdf_disponible
               ? <LectorLibroPrivado key={libroId} pdfUrl={pdfUrl} expiresAt={libro.pdf_expires_at} libroId={libroId} hotspots={hotspots} accent={accent} />
               : <TabEmpty icon="📚" msg="El PDF de este libro aún no está disponible." accent={accent} accentBg={accentBg} />
@@ -304,7 +309,7 @@ export default function Libro() {
 
         {/* ── Actividades ── */}
         {tab === 'actividades' && (
-          <div ref={actividadesScrollRef} onScroll={event => saveNavigation({ scrollTop: event.currentTarget.scrollTop })} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: accentBg }}>
+          <div ref={actividadesScrollRef} onScroll={event => { saveNavigation({ scrollTop: event.currentTarget.scrollTop }); actualizarHeader(event.currentTarget.scrollTop) }} style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', background: accentBg }}>
             {unidades.length > 0 && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, padding: isMobile ? '12px 12px 0' : '16px 24px 0', background: 'white', borderBottom: `3px solid ${accentLight}`, justifyContent: 'center', flexShrink: 0 }}>
                 {unidades.map((u, idx) => (

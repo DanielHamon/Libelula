@@ -156,13 +156,12 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
           <span className="voice-reader__eyebrow">ACOMPAÑA TU LECTURA</span>
           <h2>Lector de voz</h2>
         </div>
+        <p className="voice-reader__status" role="status">
+          <span className={`voice-reader__status-dot${estado === 'leyendo' ? ' is-playing' : ''}`} aria-hidden="true" />
+          {statusText}
+        </p>
         <span className="voice-reader__source">{hasRecordedAudio ? 'Audio grabado' : 'Sin audio en esta página'}</span>
       </div>
-
-      <p className="voice-reader__status" role="status">
-        <span className={`voice-reader__status-dot${estado === 'leyendo' ? ' is-playing' : ''}`} aria-hidden="true" />
-        {statusText}
-      </p>
 
       <div className="voice-reader__controls">
         <button className="voice-reader__nav" type="button" onClick={() => { detener(); onPrev() }} disabled={leftPageNum <= 1}>

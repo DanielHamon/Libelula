@@ -1,11 +1,11 @@
 .voice-reader {
   position: relative;
   width: min(100%, 680px);
-  margin-top: 20px;
-  padding: 20px 22px 16px;
+  margin-top: 14px;
+  padding: 12px 16px 10px;
   overflow: hidden;
   border: 1px solid #e4d8c8;
-  border-radius: 20px;
+  border-radius: 16px;
   background: #fffef7;
   box-shadow: 0 10px 28px rgb(87 67 44 / 10%);
   color: #453a35;
@@ -23,47 +23,48 @@
 .voice-reader__header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-height: 34px;
 }
 
 .voice-reader__icon {
   display: grid;
-  flex: 0 0 42px;
-  width: 42px;
-  height: 42px;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
   place-items: center;
-  border-radius: 13px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--voice-accent) 13%, white);
-  font-size: 21px;
+  font-size: 17px;
 }
 
 .voice-reader__heading {
   min-width: 0;
-  flex: 1;
+  flex: 0 0 auto;
 }
 
 .voice-reader__eyebrow {
   display: block;
   color: var(--voice-accent);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
   letter-spacing: .09em;
 }
 
 .voice-reader__heading h2 {
   margin: 2px 0 0;
-  font-size: 18px;
+  font-size: 15px;
   line-height: 1.2;
   font-weight: 900;
 }
 
 .voice-reader__source {
   flex: 0 0 auto;
-  padding: 5px 9px;
+  padding: 4px 7px;
   border-radius: 999px;
   background: #f5eee5;
   color: #6b6050;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
 }
 
@@ -71,11 +72,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 22px;
-  margin: 14px 0;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
   color: #665b50;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 1.25;
 }
 
 .voice-reader__status-dot {
@@ -95,16 +98,17 @@
   display: flex;
   align-items: stretch;
   justify-content: space-between;
-  gap: 7px;
+  gap: 6px;
   flex-wrap: wrap;
+  margin-top: 9px;
 }
 
 .voice-reader button,
 .voice-reader select {
-  min-height: 38px;
-  border-radius: 10px;
+  min-height: 33px;
+  border-radius: 9px;
   font: inherit;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -113,7 +117,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 0 11px;
+  padding: 0 9px;
   cursor: pointer;
   transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
@@ -147,7 +151,7 @@
 }
 
 .voice-reader__play {
-  min-width: 119px;
+  min-width: 108px;
   border: 1px solid var(--voice-accent);
   background: var(--voice-accent);
   color: white;
@@ -159,7 +163,7 @@
 }
 
 .voice-reader__restart {
-  width: 38px;
+  width: 33px;
   padding: 0;
 }
 
@@ -168,7 +172,7 @@
   align-items: center;
   gap: 5px;
   color: #6b6050;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
 }
 
@@ -182,7 +186,7 @@
 }
 
 .voice-reader__note {
-  margin: 12px 0 0;
+  margin: 7px 0 0;
   color: #7a6d60;
   font-size: 11px;
   line-height: 1.4;
@@ -190,7 +194,20 @@
 
 @media (max-width: 560px) {
   .voice-reader {
-    padding: 18px 14px 14px;
+    padding: 11px 12px 10px;
+  }
+
+  .voice-reader__header {
+    flex-wrap: wrap;
+  }
+
+  .voice-reader__status {
+    order: 1;
+    flex: 1 0 100%;
+  }
+
+  .voice-reader__eyebrow {
+    display: none;
   }
 
   .voice-reader__source {
@@ -199,15 +216,29 @@
   }
 
   .voice-reader__controls {
-    justify-content: center;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 33px auto;
+    align-items: center;
+    justify-content: stretch;
+  }
+
+  .voice-reader .voice-reader__nav {
+    display: none;
   }
 
   .voice-reader__play {
-    order: -1;
-    flex: 1 1 54%;
+    min-width: 0;
   }
 
   .voice-reader__restart {
-    order: -1;
+    width: 33px;
+  }
+
+  .voice-reader__speed {
+    white-space: nowrap;
+  }
+
+  .voice-reader__speed select {
+    min-width: 47px;
   }
 }
