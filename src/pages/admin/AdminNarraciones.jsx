@@ -50,6 +50,11 @@ export default function AdminNarraciones() {
   const totalVersion = visible?.pdf_total_pages || totalPdf || 0
   const paginasPreparadas = audiosListos + paginasOmitidas
   const porPagina = useMemo(() => new Map(paginas.map(p => [p.pagina_pdf, p])), [paginas])
+  const pendientesBorrador = borrador && totalPdf
+    ? Array.from({ length: totalPdf }, (_, index) => index + 1)
+      .filter(numero => !['ready', 'skipped'].includes(porPagina.get(numero)?.estado))
+    : []
+  const resumenPendientes = pendientesBorrador.slice(0, 8).join(', ')
   const paginasVisibles = Array.from({ length: Math.min(PAGE_SIZE, Math.max(0, (totalPdf || 0) - paginaLista * PAGE_SIZE)) }, (_, i) => paginaLista * PAGE_SIZE + i + 1)
 
   const cargar = useCallback(async () => {
@@ -203,8 +208,10 @@ export default function AdminNarraciones() {
                   </button>}
                   {borrador && <button type="button" disabled={busy} style={btn(C.primary, 'sm')}
                     onClick={() => ejecutar('validar', async () => await validarVersionNarracion(borrador.id)
-                      ? 'Versión válida para publicar.' : 'La versión está incompleta: cada página debe tener MP3 o estar marcada sin narración.')}>Validar borrador</button>}
-                  {borrador && <button type="button" disabled={busy} style={btnOutline(C.primary, 'sm')}
+                      ? 'Versión válida para publicar.' : pendientesBorrador.length
+                        ? `Faltan ${pendientesBorrador.length} páginas por clasificar: ${resumenPendientes}${pendientesBorrador.length > 8 ? '…' : ''}. Revisa todas las páginas de la lista.`
+                        : 'La versión no pasó la validación. Comprueba que el PDF no haya cambiado y que los MP3 estén disponibles.')}>Validar borrador</button>}
+                  {borrador && <button type="button" disabled={busy || pendientesBorrador.length > 0} style={btnOutline(C.primary, 'sm')}
                     onClick={() => ejecutar('publicar', async () => { await publicarVersionNarracion(borrador.id); return 'Versión publicada. El estado del reproductor no cambió.' })}>Publicar versión</button>}
                   {borrador && <button type="button" disabled={busy} style={btnOutline(C.danger, 'sm')}
                     onClick={() => {
@@ -241,6 +248,10 @@ export default function AdminNarraciones() {
           {visible && <section style={{ ...S.card, padding: 22 }}>
             <h2 style={{ fontSize: 18, marginTop: 0 }}>Páginas PDF · versión {visible.version}{borrador ? ' (borrador)' : ' (publicada)'}</h2>
             <p style={{ color: C.textLight, fontSize: 13 }}>Una página pendiente bloquea la publicación. Marca «Sin narración» solo cuando esa página no requiere audio.</p>
+            {pendientesBorrador.length > 0 && <p role="status" style={{ color: '#92400e', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 9, padding: 12, fontSize: 13 }}>
+              Faltan {pendientesBorrador.length} páginas por clasificar: {resumenPendientes}{pendientesBorrador.length > 8 ? '…' : ''}.
+              {Math.floor((pendientesBorrador[0] - 1) / PAGE_SIZE) !== paginaLista && ' Usa «Siguiente» para verlas.'}
+            </p>}
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
               <button type="button" disabled={paginaLista === 0} style={btnOutline(C.primary, 'sm')} onClick={() => setPaginaLista(n => n - 1)}>Anterior</button>
               <span style={{ alignSelf: 'center' }}>{paginaLista + 1} / {Math.ceil((totalPdf || 0) / PAGE_SIZE)}</span>
