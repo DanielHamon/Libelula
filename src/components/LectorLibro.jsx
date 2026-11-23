@@ -73,6 +73,8 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   const [flipState, setFlipState] = useState('idle')
   const [pageWidth, setPageWidth] = useState(null)
   const [pageHeight, setPageHeight] = useState(null)
+  const [pageRatio, setPageRatio] = useState(1)
+  const [narracionDisponible, setNarracionDisponible] = useState(false)
   const [jumpInput, setJumpInput] = useState('')
   const [activeVideo, setActiveVideo] = useState(null)
   const containerRef = useRef(null)
@@ -88,13 +90,28 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-    const observer = new ResizeObserver(([entry]) => {
-      const available = entry.contentRect.width - 120
-      setPageWidth(doublePage ? Math.floor((available - 12) / 2) : available)
-    })
+    const ajustar = () => {
+      const available = container.clientWidth - 120
+      const natural = doublePage ? Math.floor((available - 12) / 2) : available
+      const maxPageHeight = Math.max(220, window.innerHeight - 280)
+      setPageWidth(narracionDisponible ? Math.min(natural, Math.floor(maxPageHeight / pageRatio)) : natural)
+    }
+    const observer = new ResizeObserver(ajustar)
     observer.observe(container)
-    return () => observer.disconnect()
-  }, [doublePage])
+    window.addEventListener('resize', ajustar)
+    return () => { observer.disconnect(); window.removeEventListener('resize', ajustar) }
+  }, [doublePage, narracionDisponible, pageRatio])
+
+  useEffect(() => {
+    if (!pdfDoc) return undefined
+    let active = true
+    pdfDoc.getPage(1).then(page => {
+      if (!active) return
+      const viewport = page.getViewport({ scale: 1 })
+      setPageRatio(viewport.height / viewport.width)
+    }).catch(() => { /* El tamaño por ancho sigue disponible. */ })
+    return () => { active = false }
+  }, [pdfDoc])
 
   useEffect(() => () => { if (animTimerRef.current) clearTimeout(animTimerRef.current) }, [])
 
@@ -172,7 +189,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   const canNext = spread < totalSpreads - 1
 
   return (
-    <div ref={outerRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 16px 32px', background: '#E8E3D8' }}>
+    <div ref={outerRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 16px 12px', background: '#E8E3D8' }}>
       <style>{`
         @keyframes flipNext {
           0%   { transform: perspective(2400px) rotateY(0deg);    box-shadow: -2px 0 6px rgba(0,0,0,0.10); opacity: 1; }
@@ -199,39 +216,29 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
       `}</style>
 
       {/* Page indicator + jump */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#6B6050' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 26, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#6B6050', whiteSpace: 'nowrap' }}>
           {numPages
             ? doublePage
-              ? `Páginas ${leftPageNum}–${Math.min(rightPageNum, numPages)} de ${numPages}`
-              : `Página ${leftPageNum} de ${numPages}`
+              ? `Págs. ${leftPageNum}–${Math.min(rightPageNum, numPages)} / ${numPages}`
+              : `Pág. ${leftPageNum} / ${numPages}`
             : 'Cargando...'}
         </span>
         {numPages && (
-          <div style={{ width: 100, background: 'rgba(0,0,0,0.15)', borderRadius: 4, height: 4, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 4, background: C.primary,
-              width: `${(leftPageNum / numPages) * 100}%`,
-              transition: 'width 0.4s ease',
-            }} />
-          </div>
-        )}
-        {numPages && (
           <form onSubmit={handleJump} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 12, color: '#6B6050', fontWeight: 600 }}>Ir a pág.</span>
             <input
-              type="number" min={1} max={numPages} value={jumpInput}
+              type="number" min={1} max={numPages} value={jumpInput} aria-label="Ir a página PDF"
               onChange={e => setJumpInput(e.target.value)} placeholder="…"
               style={{
-                width: 52, padding: '3px 6px', borderRadius: 6,
-                border: '1px solid #C4BBA8', fontSize: 13,
+                width: 45, height: 26, padding: '2px 4px', borderRadius: 6,
+                border: '1px solid #C4BBA8', fontSize: 12,
                 fontFamily: 'Nunito', background: '#FFFEF7', color: '#6B6050',
                 textAlign: 'center', outline: 'none',
               }}
             />
-            <button type="submit" style={{
+            <button type="submit" aria-label="Ir a la página indicada" style={{
               background: C.primary, color: '#fff', border: 'none',
-              borderRadius: 6, padding: '4px 10px', fontSize: 13,
+              borderRadius: 6, width: 27, height: 26, padding: 0, fontSize: 13,
               cursor: 'pointer', fontFamily: 'Nunito', fontWeight: 700,
             }}>→</button>
           </form>
@@ -379,13 +386,14 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
           autoPlayPage={autoPlayPage}
           autoPlayReady={flipState === 'idle'}
           onAutoPlayConsumed={setAutoPlayPage}
+          onAvailabilityChange={setNarracionDisponible}
           accent={accent}
         />
       )}
 
       {/* Dots */}
       {totalSpreads > 1 && (
-        <div style={{ display: 'flex', gap: 6, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 400 }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 400 }}>
           {Array.from({ length: Math.min(totalSpreads, 20) }).map((_, i) => (
             <button key={i}
               onClick={() => {

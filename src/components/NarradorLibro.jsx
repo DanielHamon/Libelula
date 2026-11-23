@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { firmarNarracionPagina, getNarracionPublicada } from '../services/narraciones.service'
 import './NarradorLibro.css'
 
-export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, onPrev, onNext, onAutoNext, autoPlayPage, autoPlayReady, onAutoPlayConsumed, accent }) {
+export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, onPrev, onNext, onAutoNext, autoPlayPage, autoPlayReady, onAutoPlayConsumed, onAvailabilityChange, accent }) {
   const [narracion, setNarracion] = useState(null)
   const [estado, setEstado] = useState('cargando')
   const [pagina, setPagina] = useState(leftPageNum)
@@ -47,12 +47,17 @@ export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageN
           setEstado(data ? 'parado' : 'sin_narracion')
         }
         setNarracion(data)
-      } catch { if (active && request === latestRequest) setEstado('error') }
+        onAvailabilityChange(Boolean(data))
+      } catch {
+        if (active && request === latestRequest) {
+          setEstado('error')
+        }
+      }
     }
     void refresh()
     const timer = setInterval(() => { void refresh() }, 3000)
     return () => { active = false; clearInterval(timer); detener(); urlCache.clear() }
-  }, [libroId, detener])
+  }, [libroId, detener, onAvailabilityChange])
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = velocidad

@@ -1,7 +1,7 @@
 .voice-reader {
   position: relative;
   width: min(100%, 680px);
-  margin-top: 14px;
+  margin-top: 8px;
   padding: 12px 16px 10px;
   overflow: hidden;
   border: 1px solid #e4d8c8;
