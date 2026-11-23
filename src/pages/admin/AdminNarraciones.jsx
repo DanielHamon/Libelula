@@ -34,6 +34,7 @@ export default function AdminNarraciones() {
   const [versiones, setVersiones] = useState([])
   const [pendientes, setPendientes] = useState([])
   const [paginas, setPaginas] = useState([])
+  const [publicadaValida, setPublicadaValida] = useState(false)
   const [totalPdf, setTotalPdf] = useState(null)
   const [paginaLista, setPaginaLista] = useState(0)
   const [audioUrl, setAudioUrl] = useState('')
@@ -60,15 +61,19 @@ export default function AdminNarraciones() {
       const [estado, numero] = await Promise.all([
         obtenerEstadoNarracion(id), contarPaginas(actual.pdf_url),
       ])
-      const seleccionada = estado.versiones.find(v => v.estado === 'draft')
-        || estado.versiones.find(v => v.estado === 'published')
-      const filas = seleccionada ? await obtenerPaginasNarracion(seleccionada.id) : []
+      const versionPublicada = estado.versiones.find(v => v.estado === 'published')
+      const seleccionada = estado.versiones.find(v => v.estado === 'draft') || versionPublicada
+      const [filas, esValida] = await Promise.all([
+        seleccionada ? obtenerPaginasNarracion(seleccionada.id) : [],
+        versionPublicada ? validarVersionNarracion(versionPublicada.id) : false,
+      ])
       setLibros(catalogo)
       setLibro(actual)
       setVersiones(estado.versiones)
       setPendientes(estado.pendientes)
       setTotalPdf(numero)
       setPaginas(filas)
+      setPublicadaValida(esValida)
       setError('')
     } catch (e) { setError(e.message) }
   }, [id])
@@ -82,7 +87,11 @@ export default function AdminNarraciones() {
       const text = await action()
       await cargar()
       setMensaje(text || 'Cambio guardado.')
-    } catch (e) { setError(e.message) }
+    } catch (e) {
+      setError(e.message === 'narracion_publicada_incompleta'
+        ? 'La versión publicada no es válida para habilitar el reproductor. Crea un borrador, revisa el PDF y clasifica todas sus páginas antes de publicar una nueva versión.'
+        : e.message)
+    }
     finally { setOcupado('') }
   }
 
@@ -171,6 +180,16 @@ export default function AdminNarraciones() {
               <span>Solicitud de {item.payload?.habilitar ? 'habilitación' : 'deshabilitación'} pendiente desde el {new Date(item.solicitado_en).toLocaleString('es-CO')}. El estado actual se mantiene hasta la decisión del superadmin.</span>
             </div>)}
 
+            {!libro.narracion_habilitada && !publicadaValida && <div className="admin-narration-summary__warning" role="status">
+              <strong>La narración aún no se puede habilitar.</strong>
+              <span>{!publicada
+                ? 'Este libro necesita una versión publicada.'
+                : publicada.pdf_total_pages == null
+                  ? 'La versión publicada del piloto no registra el total de páginas del PDF y no cumple la validación actual.'
+                  : 'La versión publicada tiene páginas pendientes, un MP3 no disponible o un PDF que cambió.'}
+                {' '}Crea o continúa un borrador, carga los MP3 necesarios y marca «Sin narración» solo las páginas que realmente no requieren audio. Después valida y publica la nueva versión.</span>
+            </div>}
+
             <div className="admin-narration-summary__actions">
               <div className="admin-narration-summary__action-group">
                 <div className="admin-narration-summary__action-copy">
@@ -200,7 +219,7 @@ export default function AdminNarraciones() {
                   <p>El superadmin debe aprobar cualquier cambio de habilitación.</p>
                 </div>
                 <div className="admin-narration-summary__buttons">
-                  <button type="button" disabled={busy || pendientes.length > 0} style={btnOutline(C.primary, 'sm')}
+                  <button type="button" disabled={busy || pendientes.length > 0 || (!libro.narracion_habilitada && !publicadaValida)} style={btnOutline(C.primary, 'sm')}
                     onClick={() => ejecutar('solicitud', async () => {
                       await solicitarEstadoNarracion(id, !libro.narracion_habilitada)
                       return 'Solicitud enviada al superadministrador. El estado actual no cambió.'

@@ -126,6 +126,17 @@
   border-radius: 9px;
   font-size: 12px;
 }
+.admin-narration-summary__warning {
+  display: grid;
+  gap: 4px;
+  margin-top: 17px;
+  padding: 13px 15px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 9px;
+  font-size: 13px;
+}
 
 .admin-narration-summary__actions {
   margin-top: 22px;
