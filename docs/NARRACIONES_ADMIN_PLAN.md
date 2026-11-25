@@ -33,6 +33,12 @@ Las URLs firmadas duran **120 segundos**. Supabase Storage puede seguir sirviend
 
 Las migraciones versionadas, en orden, son `supabase/migrations/202611210001_narraciones_admin.sql` (tablas, estado, bucket y RLS), `202611210002_narraciones_operaciones.sql` (borradores, MP3, publicación y solicitudes) y `202611210003_narraciones_integracion.sql` (resolución mediante el RPC existente y limpieza). Requieren el esquema principal de IAbooks y sus funciones de roles, acceso y aprobaciones. En la réplica local se aplicaron con `docker exec -i supabase_db_iabooks-replica-20261110 psql -U postgres -d postgres -v ON_ERROR_STOP=1 -f - < archivo.sql`. También se aplicaron, en orden, sobre una base temporal sin datos tras retirar sus tablas y columnas de narración: las tres pasaron, el valor inicial fue `false` y la base temporal se eliminó. Ese contenedor pertenece solo a la réplica local. Los SQL históricos del piloto no deben reaplicarse después de estas migraciones.
 
+### Preparación de la integración
+
+Este repositorio no tiene configurado un despliegue automático de migraciones. La réplica local recibió los tres archivos con `psql`, por lo que **no aparecen en `supabase_migrations.schema_migrations`**. No se debe interpretar ese historial vacío como permiso para repetirlos sobre una base que ya tenga las tablas. Antes de integrar un PR que active el despliegue del frontend, el responsable del entorno debe revisar el esquema de destino, confirmar los prerrequisitos y los objetos existentes, respaldar la base y acordar la aplicación ordenada de las tres migraciones. Si se adopta Supabase CLI, primero hay que reconciliar su historial con lo realmente aplicado. No ejecutar `db push` a ciegas.
+
+Los MP3 de la réplica local y sus registros no viajan con Git. Tras instalar el esquema en otro entorno, cada libro permanece deshabilitado por defecto; sus archivos y versiones deben prepararse allí mediante el flujo administrativo y la aprobación del superadmin. La Preview solo debe usarse para escrituras si está conectada a datos de prueba. El merge a `main` despliega el frontend automáticamente, así que el plan de migración del entorno de destino debe estar listo antes de aprobarlo.
+
 ```bash
 npm run lint
 npm run build

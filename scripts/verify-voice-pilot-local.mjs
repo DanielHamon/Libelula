@@ -30,15 +30,18 @@ async function main() {
   const { data: books, error: bookError } = await admin.from('narraciones_libro')
     .select('id, version, estado, proveedor').eq('libro_id', BOOK_ID).order('version')
   assert.ifError(bookError)
-  assert.deepEqual(books.map(book => [book.version, book.estado, book.proveedor]), [
-    [1, 'archived', 'fixture_local'],
-    [2, 'published', 'elevenlabs'],
-  ])
+  assert.ok(books.some(book => book.version === 1 && book.estado === 'archived'
+    && book.proveedor === 'fixture_local'), 'Falta la versión técnica archivada')
+  assert.ok(books.some(book => book.version === 2 && book.proveedor === 'elevenlabs'),
+    'Falta la versión original de ElevenLabs')
+  const published = books.filter(book => book.estado === 'published')
+  assert.equal(published.length, 1, 'Debe existir una sola versión publicada')
+  const current = published[0]
   const { data: pages, error: pageError } = await admin.from('narraciones_pagina')
     .select('pagina_pdf, storage_path, tamano_bytes, mime_type')
-    .eq('narracion_id', books[1].id).eq('estado', 'ready').order('pagina_pdf')
+    .eq('narracion_id', current.id).eq('estado', 'ready').order('pagina_pdf')
   assert.ifError(pageError)
-  assert.deepEqual(pages.map(page => page.pagina_pdf), [8, 9, 10, 11])
+  assert.ok(pages.length > 0, 'La versión publicada no tiene páginas con MP3')
   assert.ok(pages.every(page => page.mime_type === 'audio/mpeg' && page.tamano_bytes > 2048))
   const { data: buckets, error: bucketError } = await admin.storage.listBuckets()
   assert.ifError(bucketError)
@@ -52,8 +55,9 @@ async function main() {
   const { data: libro, error: libroError } = await admin.from('libros')
     .select('narracion_habilitada').eq('id', BOOK_ID).single()
   assert.ifError(libroError)
-  const { data: versionValida, error: versionError } = await admin.rpc('narracion_version_valida', { p_id: books[1].id })
+  const { data: versionValida, error: versionError } = await admin.rpc('narracion_version_valida', { p_id: current.id })
   assert.ifError(versionError)
+  assert.equal(versionValida, true, 'La versión publicada no supera la validación de integridad')
 
   let authorized = null
   for (const activation of activations) {
@@ -72,7 +76,7 @@ async function main() {
     .select('pagina_pdf').eq('libro_id', BOOK_ID)
   assert.ifError(visibleError)
   if (libro.narracion_habilitada && versionValida) {
-    assert.deepEqual(visibleRows.map(page => page.pagina_pdf), [8, 9, 10, 11])
+    assert.deepEqual(visibleRows.map(page => page.pagina_pdf), pages.map(page => page.pagina_pdf))
   } else {
     assert.equal(visibleRows.length, 0)
     const { error: blockedSign } = await authorized.storage.from('audiobooks')
@@ -89,7 +93,7 @@ async function main() {
     .createSignedUrl(pages[0].storage_path, 60)
   assert.ok(deniedSignError, 'El usuario sin acceso pudo firmar el audio')
 
-  console.log(`Piloto local verificado: ${BOOK_ID}; versión 2, cuatro MP3 privados preservados; acceso estudiantil ${libro.narracion_habilitada && versionValida ? 'habilitado' : 'denegado por estado o integridad'}`)
+  console.log(`Piloto local verificado: ${BOOK_ID}; versión ${current.version}, ${pages.length} MP3 privados; acceso estudiantil ${libro.narracion_habilitada && versionValida ? 'habilitado' : 'denegado por estado o integridad'}`)
 }
 
 main().catch(error => { console.error(`Verificación local falló: ${error.message}`); process.exitCode = 1 })
