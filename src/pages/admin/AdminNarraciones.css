@@ -168,6 +168,18 @@
   padding-top: 16px;
 }
 
+.admin-narration-page-number {
+  display: grid;
+  flex: 0 0 92px;
+  gap: 1px;
+  line-height: 1.25;
+}
+.admin-narration-page-number small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 @media (max-width: 760px) {
   .admin-narration-summary { padding: 20px; }
   .admin-narration-summary__header,

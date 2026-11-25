@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { pdfjs } from 'react-pdf'
 import AdminLayout from '../../components/AdminLayout'
 import { C, S, btn, btnOutline, badge } from '../../lib/adminStyles'
+import { etiquetaPaginaLibro, nombrePaginaLibro } from '../../lib/bookPageNumbers'
 import { supabase } from '../../lib/supabase'
 import './AdminNarraciones.css'
 import {
@@ -54,7 +55,7 @@ export default function AdminNarraciones() {
     ? Array.from({ length: totalPdf }, (_, index) => index + 1)
       .filter(numero => !['ready', 'skipped'].includes(porPagina.get(numero)?.estado))
     : []
-  const resumenPendientes = pendientesBorrador.slice(0, 8).join(', ')
+  const resumenPendientes = pendientesBorrador.slice(0, 8).map(numero => nombrePaginaLibro(numero, totalPdf)).join(', ')
   const paginasVisibles = Array.from({ length: Math.min(PAGE_SIZE, Math.max(0, (totalPdf || 0) - paginaLista * PAGE_SIZE)) }, (_, i) => paginaLista * PAGE_SIZE + i + 1)
 
   const cargar = useCallback(async () => {
@@ -104,16 +105,18 @@ export default function AdminNarraciones() {
     if (!file || !borrador) return
     await ejecutar(`carga-${pagina}`, async () => {
       await cargarMp3Narracion(borrador.id, pagina, file)
-      return `MP3 de la página ${pagina} cargado.`
+      return `MP3 cargado en ${nombrePaginaLibro(pagina, totalPdf)}.`
     })
   }
 
   async function cambiarPagina(pagina, estado) {
     if (!borrador) return
-    if (estado === 'pending' && !window.confirm(`¿Eliminar el MP3 de la página ${pagina} del borrador?`)) return
+    if (estado === 'pending' && !window.confirm(`¿Eliminar el MP3 de ${nombrePaginaLibro(pagina, totalPdf)} del borrador?`)) return
     await ejecutar(`pagina-${pagina}`, async () => {
       await cambiarPaginaNarracion(borrador.id, pagina, estado)
-      return estado === 'skipped' ? `Página ${pagina} marcada sin narración.` : `MP3 de la página ${pagina} retirado del borrador.`
+      return estado === 'skipped'
+        ? `${nombrePaginaLibro(pagina, totalPdf)} marcada sin narración.`
+        : `MP3 retirado de ${nombrePaginaLibro(pagina, totalPdf)} del borrador.`
     })
   }
 
@@ -246,8 +249,8 @@ export default function AdminNarraciones() {
           </section>
 
           {visible && <section style={{ ...S.card, padding: 22 }}>
-            <h2 style={{ fontSize: 18, marginTop: 0 }}>Páginas PDF · versión {visible.version}{borrador ? ' (borrador)' : ' (publicada)'}</h2>
-            <p style={{ color: C.textLight, fontSize: 13 }}>Una página pendiente bloquea la publicación. Marca «Sin narración» solo cuando esa página no requiere audio.</p>
+            <h2 style={{ fontSize: 18, marginTop: 0 }}>Páginas del libro · versión {visible.version}{borrador ? ' (borrador)' : ' (publicada)'}</h2>
+            <p style={{ color: C.textLight, fontSize: 13 }}>La portada no lleva número impreso: cada fila muestra también su página PDF, que es la usada para guardar el MP3. Marca «Sin narración» solo cuando esa página no requiere audio.</p>
             {pendientesBorrador.length > 0 && <p role="status" style={{ color: '#92400e', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 9, padding: 12, fontSize: 13 }}>
               Faltan {pendientesBorrador.length} páginas por clasificar: {resumenPendientes}{pendientesBorrador.length > 8 ? '…' : ''}.
               {Math.floor((pendientesBorrador[0] - 1) / PAGE_SIZE) !== paginaLista && ' Usa «Siguiente» para verlas.'}
@@ -261,8 +264,10 @@ export default function AdminNarraciones() {
               {paginasVisibles.map(numero => {
                 const p = porPagina.get(numero)
                 const audio = p?.estado === 'ready' && p.storage_path
+                const paginaImpresa = etiquetaPaginaLibro(numero, totalPdf)
+                const paginaNombre = nombrePaginaLibro(numero, totalPdf)
                 return <div key={numero} data-page-row={numero} style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', padding: 12, border: `1px solid ${C.border}`, borderRadius: 8 }}>
-                  <strong style={{ minWidth: 80 }}>Página {numero}</strong>
+                  <span className="admin-narration-page-number"><strong>{paginaImpresa === 'Portada' ? paginaImpresa : `Página ${paginaImpresa}`}</strong><small>PDF {numero}</small></span>
                   <span style={badge(audio ? C.success : C.textLight, audio ? C.successLight : '#F3F4F6')}>
                     {audio ? 'MP3 listo' : p?.estado === 'skipped' ? 'Sin narración' : 'Pendiente'}
                   </span>
@@ -275,8 +280,8 @@ export default function AdminNarraciones() {
                       <input type="file" data-upload-page={numero} accept=".mp3,audio/mpeg" disabled={busy} style={{ display: 'none' }}
                         onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; void cargarArchivo(numero, file) }} />
                     </label>
-                    <button type="button" aria-label={`Marcar página ${numero} sin narración`} disabled={busy} style={btnOutline(C.textLight, 'sm')} onClick={() => cambiarPagina(numero, 'skipped')}>Sin narración</button>
-                    {audio && <button type="button" aria-label={`Eliminar MP3 de página ${numero}`} disabled={busy} style={btnOutline(C.danger, 'sm')} onClick={() => cambiarPagina(numero, 'pending')}>Eliminar MP3</button>}
+                    <button type="button" aria-label={`Marcar ${paginaNombre} sin narración`} disabled={busy} style={btnOutline(C.textLight, 'sm')} onClick={() => cambiarPagina(numero, 'skipped')}>Sin narración</button>
+                    {audio && <button type="button" aria-label={`Eliminar MP3 de ${paginaNombre}`} disabled={busy} style={btnOutline(C.danger, 'sm')} onClick={() => cambiarPagina(numero, 'pending')}>Eliminar MP3</button>}
                   </>}
                 </div>
               })}

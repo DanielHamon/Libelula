@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { firmarNarracionPagina, getNarracionPublicada } from '../services/narraciones.service'
+import { etiquetaPaginaLibro } from '../lib/bookPageNumbers'
 import './NarradorLibro.css'
-
-function etiquetaPaginaLibro(paginaPdf, numPages) {
-  if (numPages > 1 && paginaPdf === 1) return 'Portada'
-  return String(paginaPdf - (numPages > 1 ? 1 : 0))
-}
 
 export default function NarradorLibro({ libroId, pdfDoc, leftPageNum, rightPageNum, numPages, doublePage, onPrev, onNext, onAutoNext, autoPlayPage, autoPlayReady, onAutoPlayConsumed, onAvailabilityChange, accent }) {
   const [narracion, setNarracion] = useState(null)
