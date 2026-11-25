@@ -3,7 +3,7 @@ import { renovarPdfLibro } from '../services/libros.service'
 import { createPdfAccess } from '../lib/pdfAccess'
 import LectorLibro from './LectorLibro'
 
-export default function LectorLibroPrivado({ libroId, pdfUrl, expiresAt, hotspots }) {
+export default function LectorLibroPrivado({ libroId, pdfUrl, expiresAt, hotspots, accent }) {
   const [access, setAccess] = useState({ url: null, revision: 0, loading: true, error: false })
   const controller = useRef(null)
   useEffect(() => {
@@ -28,7 +28,7 @@ export default function LectorLibroPrivado({ libroId, pdfUrl, expiresAt, hotspot
         </div>
       )}
       {access.url && (
-        <LectorLibro libroId={libroId} pdfUrl={access.url} pdfRevision={access.revision}
+        <LectorLibro libroId={libroId} pdfUrl={access.url} pdfRevision={access.revision} accent={accent}
           onPdfError={recover} hotspots={hotspots} />
       )}
     </>

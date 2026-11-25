@@ -3,6 +3,7 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { useWindowWidth } from '../hooks/useWindowWidth'
+import NarradorLibro from './NarradorLibro'
 
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -59,7 +60,7 @@ async function extractPageText(pdfDoc, pageNum) {
   }
 }
 
-export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevision = 0, onPdfError }) {
+export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevision = 0, onPdfError, accent }) {
   const windowWidth = useWindowWidth()
   const isMobile = windowWidth < 768
   const doublePage = windowWidth > 860
@@ -68,9 +69,12 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   const [loadedBookId, setLoadedBookId] = useState(null)
   const [pdfDoc, setPdfDoc] = useState(null)
   const [spread, setSpread] = useState(0)
+  const [autoPlayPage, setAutoPlayPage] = useState(null)
   const [flipState, setFlipState] = useState('idle')
   const [pageWidth, setPageWidth] = useState(null)
   const [pageHeight, setPageHeight] = useState(null)
+  const [pageRatio, setPageRatio] = useState(1)
+  const [narracionDisponible, setNarracionDisponible] = useState(false)
   const [jumpInput, setJumpInput] = useState('')
   const [activeVideo, setActiveVideo] = useState(null)
   const containerRef = useRef(null)
@@ -86,13 +90,28 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
-    const observer = new ResizeObserver(([entry]) => {
-      const available = entry.contentRect.width - 120
-      setPageWidth(doublePage ? Math.floor((available - 12) / 2) : available)
-    })
+    const ajustar = () => {
+      const available = container.clientWidth - 120
+      const natural = doublePage ? Math.floor((available - 12) / 2) : available
+      const maxPageHeight = Math.max(220, window.innerHeight - 280)
+      setPageWidth(narracionDisponible ? Math.min(natural, Math.floor(maxPageHeight / pageRatio)) : natural)
+    }
+    const observer = new ResizeObserver(ajustar)
     observer.observe(container)
-    return () => observer.disconnect()
-  }, [doublePage])
+    window.addEventListener('resize', ajustar)
+    return () => { observer.disconnect(); window.removeEventListener('resize', ajustar) }
+  }, [doublePage, narracionDisponible, pageRatio])
+
+  useEffect(() => {
+    if (!pdfDoc) return undefined
+    let active = true
+    pdfDoc.getPage(1).then(page => {
+      if (!active) return
+      const viewport = page.getViewport({ scale: 1 })
+      setPageRatio(viewport.height / viewport.width)
+    }).catch(() => { /* El tamaño por ancho sigue disponible. */ })
+    return () => { active = false }
+  }, [pdfDoc])
 
   useEffect(() => () => { if (animTimerRef.current) clearTimeout(animTimerRef.current) }, [])
 
@@ -123,8 +142,9 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
     setTimeout(() => { if (outerRef.current) outerRef.current.style.minHeight = '' }, delay)
   }
 
-  function goNext() {
+  function turnNext(autoPage = null) {
     if (flipState !== 'idle' || spread >= totalSpreads - 1) return
+    setAutoPlayPage(autoPage)
     freezeHeight()
     setSpread(s => s + 1)
     setFlipState('next')
@@ -132,8 +152,13 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
     animTimerRef.current = setTimeout(() => { setFlipState('idle'); thawHeight() }, ANIM_MS)
   }
 
+  function goNext() { turnNext() }
+
+  function autoNext(nextPage) { turnNext(nextPage) }
+
   function goPrev() {
     if (flipState !== 'idle' || spread <= 0) return
+    setAutoPlayPage(null)
     freezeHeight()
     setSpread(s => s - 1)
     setFlipState('prev')
@@ -146,7 +171,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
     const target = parseInt(jumpInput, 10)
     if (!isNaN(target) && target >= 1 && target <= numPages) {
       const targetSpread = doublePage ? Math.floor((target - 1) / 2) : target - 1
-      if (targetSpread !== spread) { freezeHeight(); setSpread(targetSpread); thawHeight(200) }
+      if (targetSpread !== spread) { setAutoPlayPage(null); freezeHeight(); setSpread(targetSpread); thawHeight(200) }
     }
     setJumpInput('')
   }
@@ -164,7 +189,7 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
   const canNext = spread < totalSpreads - 1
 
   return (
-    <div ref={outerRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px 16px 32px', background: '#E8E3D8' }}>
+    <div ref={outerRef} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '8px 16px 12px', background: '#E8E3D8' }}>
       <style>{`
         @keyframes flipNext {
           0%   { transform: perspective(2400px) rotateY(0deg);    box-shadow: -2px 0 6px rgba(0,0,0,0.10); opacity: 1; }
@@ -191,39 +216,29 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
       `}</style>
 
       {/* Page indicator + jump */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <span style={{ fontSize: 13, fontWeight: 600, color: '#6B6050' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, minHeight: 26, marginBottom: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#6B6050', whiteSpace: 'nowrap' }}>
           {numPages
             ? doublePage
-              ? `Páginas ${leftPageNum}–${Math.min(rightPageNum, numPages)} de ${numPages}`
-              : `Página ${leftPageNum} de ${numPages}`
+              ? `PDF ${leftPageNum}–${Math.min(rightPageNum, numPages)} / ${numPages}`
+              : `PDF ${leftPageNum} / ${numPages}`
             : 'Cargando...'}
         </span>
         {numPages && (
-          <div style={{ width: 100, background: 'rgba(0,0,0,0.15)', borderRadius: 4, height: 4, overflow: 'hidden' }}>
-            <div style={{
-              height: '100%', borderRadius: 4, background: C.primary,
-              width: `${(leftPageNum / numPages) * 100}%`,
-              transition: 'width 0.4s ease',
-            }} />
-          </div>
-        )}
-        {numPages && (
           <form onSubmit={handleJump} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 12, color: '#6B6050', fontWeight: 600 }}>Ir a pág.</span>
             <input
-              type="number" min={1} max={numPages} value={jumpInput}
+              type="number" min={1} max={numPages} value={jumpInput} aria-label="Ir a página PDF"
               onChange={e => setJumpInput(e.target.value)} placeholder="…"
               style={{
-                width: 52, padding: '3px 6px', borderRadius: 6,
-                border: '1px solid #C4BBA8', fontSize: 13,
+                width: 45, height: 26, padding: '2px 4px', borderRadius: 6,
+                border: '1px solid #C4BBA8', fontSize: 12,
                 fontFamily: 'Nunito', background: '#FFFEF7', color: '#6B6050',
                 textAlign: 'center', outline: 'none',
               }}
             />
-            <button type="submit" style={{
+            <button type="submit" aria-label="Ir a la página indicada" style={{
               background: C.primary, color: '#fff', border: 'none',
-              borderRadius: 6, padding: '4px 10px', fontSize: 13,
+              borderRadius: 6, width: 27, height: 26, padding: 0, fontSize: 13,
               cursor: 'pointer', fontFamily: 'Nunito', fontWeight: 700,
             }}>→</button>
           </form>
@@ -356,13 +371,33 @@ export default function LectorLibro({ pdfUrl, libroId, hotspots = [], pdfRevisio
         />
       )}
 
+      {libroId && pdfDoc && (
+        <NarradorLibro
+          key={`${libroId}-${spread}-${doublePage}`}
+          libroId={libroId}
+          pdfDoc={pdfDoc}
+          leftPageNum={leftPageNum}
+          rightPageNum={rightPageNum}
+          numPages={numPages}
+          doublePage={doublePage}
+          onPrev={goPrev}
+          onNext={goNext}
+          onAutoNext={autoNext}
+          autoPlayPage={autoPlayPage}
+          autoPlayReady={flipState === 'idle'}
+          onAutoPlayConsumed={setAutoPlayPage}
+          onAvailabilityChange={setNarracionDisponible}
+          accent={accent}
+        />
+      )}
+
       {/* Dots */}
       {totalSpreads > 1 && (
-        <div style={{ display: 'flex', gap: 6, marginTop: 16, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 400 }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center', maxWidth: 400 }}>
           {Array.from({ length: Math.min(totalSpreads, 20) }).map((_, i) => (
             <button key={i}
               onClick={() => {
-                if (flipState === 'idle' && i !== spread) { freezeHeight(); setSpread(i); thawHeight(200) }
+                if (flipState === 'idle' && i !== spread) { setAutoPlayPage(null); freezeHeight(); setSpread(i); thawHeight(200) }
               }}
               style={{
                 width: spread === i ? 24 : 8, height: 8, borderRadius: 4, border: 'none',
